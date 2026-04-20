@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ko-bg: #09090b;
+  --color-ko-card: #18181b;
+  --color-ko-border: #27272a;
+  --color-ko-accent: #ff3b30;
+  --color-ko-text-dim: #a1a1aa;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@500&display=swap');
+
+body {
+  background-color: var(--color-ko-bg);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.ko-glass {
+  background: rgba(9, 9, 11, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.ko-card {
+  background: var(--color-ko-card);
+  border: 1px solid var(--color-ko-border);
+  border-radius: 8px;
+  transition: border-color 0.2s;
+}
+
+.ko-card:hover {
+  border-color: var(--color-ko-accent);
+}
+
+.ko-btn-accent {
+  background: var(--color-ko-accent);
+  color: white;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  transition: all 0.2s;
+}
+
+.ko-btn-accent:hover {
+  filter: brightness(1.1);
+}
+
+.ko-btn-outline {
+  background: var(--color-ko-bg);
+  border: 1px solid var(--color-ko-border);
+  transition: all 0.2s;
+}
+
+.ko-btn-outline:hover {
+  border-color: var(--color-ko-accent);
+  background: rgba(255, 59, 48, 0.1);
+}
+
+.stat-box {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-ko-border);
+}
+
+.payment-pill {
+  background: var(--color-ko-bg);
+  border: 1px solid var(--color-ko-border);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.payment-pill:hover {
+  border-color: var(--color-ko-accent);
+}

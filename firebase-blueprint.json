@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "Fighter": {
+      "title": "Fighter",
+      "description": "A boxer in a match",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "record": { "type": "string" },
+        "image": { "type": "string" },
+        "bio": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Event": {
+      "title": "Boxing Event",
+      "description": "A specific fight night or match",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "location": { "type": "string" },
+        "status": { "type": "string", "enum": ["upcoming", "live", "finished", "cancelled"] },
+        "fighters": { "type": "array", "items": { "type": "string" } },
+        "result": { "type": "string", "description": "ID of the winner or 'draw'" }
+      },
+      "required": ["title", "date", "status", "fighters"]
+    },
+    "Bet": {
+      "title": "User Bet",
+      "description": "A prediction made by a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "eventId": { "type": "string" },
+        "selection": { "type": "string" },
+        "amount": { "type": "number" },
+        "odds": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "won", "lost", "refunded"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "eventId", "selection", "amount"]
+    },
+    "Transaction": {
+      "title": "Financial Transaction",
+      "description": "Deposit or withdrawal records",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["deposit", "withdrawal"] },
+        "amount": { "type": "number" },
+        "method": { "type": "string", "enum": ["paypal", "bank", "crypto"] },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "amount", "method", "status"]
+    }
+  },
+  "firestore": {
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "List of boxing events"
+    },
+    "/fighters/{fighterId}": {
+      "schema": "Fighter",
+      "description": "Boxer profiles"
+    },
+    "/bets/{betId}": {
+      "schema": "Bet",
+      "description": "User bets"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Financial records"
+    },
+    "/users/{userId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "balance": { "type": "number" },
+          "isAdmin": { "type": "boolean" },
+          "displayName": { "type": "string" }
+        }
+      },
+      "description": "User profiles and balances"
+    }
+  }
+}
