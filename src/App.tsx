@@ -10,7 +10,9 @@ import {
   ChevronRight,
   Activity,
   Cpu,
-  Crosshair
+  Crosshair,
+  LayoutDashboard,
+  User as UserIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
