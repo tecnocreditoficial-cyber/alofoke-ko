@@ -12,7 +12,13 @@ import {
   Cpu,
   Crosshair,
   LayoutDashboard,
-  User as UserIcon
+  User as UserIcon,
+  Shield,
+  CreditCard,
+  History,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -95,18 +101,44 @@ export default function App() {
     if (data) setProfile(data);
   };
 
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPass, setAuthPass] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [pendingTransactions, setPendingTransactions] = useState<any[]>([]);
+
+  const fetchEvents = async () => {
+    const { data } = await supabase.from('events').select('*').order('created_at', { ascending: false });
+    if (data) {
+      setEvents(data);
+      if (!selectedEvent && data.length > 0) setSelectedEvent(data[0]);
+    }
+  };
+
+  const fetchProfile = async (uid: string) => {
+    const { data } = await supabase.from('users').select('*').eq('id', uid).single();
+    if (data) setProfile(data);
+  };
+
   const fetchBets = async (uid: string) => {
     const { data } = await supabase.from('bets').select('*').eq('user_id', uid).order('created_at', { ascending: false });
     if (data) setUserBets(data);
   };
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      const { data } = await supabase.from('settings').select('data').eq('id', 'payments').single();
-      if (data) setPaymentAccounts(data.data);
-    };
-    loadSettings();
+  const fetchPendingTransactions = async () => {
+    const { data } = await supabase
+      .from('transactions')
+      .select('*, users(email, display_name)')
+      .eq('status', 'pending');
+    if (data) setPendingTransactions(data);
+  };
 
+  const loadSettings = async () => {
+    const { data } = await supabase.from('settings').select('data').eq('id', 'payments').single();
+    if (data) setPaymentAccounts(data.data);
+  };
+
+  useEffect(() => {
+    loadSettings();
     fetchEvents();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -132,24 +164,42 @@ export default function App() {
         if (payload.new.id === user?.id) setProfile(payload.new as UserProfile);
       }).subscribe();
 
-    const betsSub = supabase.channel('public:bets')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bets' }, () => {
-        if (user) fetchBets(user.id);
-      }).subscribe();
-
     return () => {
       authListener.subscription.unsubscribe();
       supabase.removeChannel(eventsSub);
       supabase.removeChannel(profileSub);
-      supabase.removeChannel(betsSub);
     };
   }, [user?.id]);
 
-  const handleLogin = async () => {
+  useEffect(() => {
+    if (profile?.is_admin) {
+      fetchPendingTransactions();
+    }
+  }, [profile?.is_admin]);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
     try {
-      await supabase.auth.signInWithOAuth({ provider: 'google' });
-    } catch (err) {
-      console.error("Login failed", err);
+      if (authMode === 'signup') {
+        const { error } = await supabase.auth.signUp({ 
+          email: authEmail, 
+          password: authPass,
+          options: {
+            data: { full_name: authEmail.split('@')[0] }
+          }
+        });
+        if (error) throw error;
+        alert('REGISTRO EXITOSO. YA PUEDES INICIAR SESIÓN.');
+        setAuthMode('login');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPass });
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -186,57 +236,50 @@ export default function App() {
       if (balanceError) throw balanceError;
 
       setBetModalOpen(false);
-      // alert('TRANSACCIÓN CONFIRMADA EN LA RED.');
     } catch (err) {
       console.error(err);
-      alert('ERROR EN LA TRANSACCIÓN. INTENTA DE NUEVO.');
+      alert('ERROR EN LA TRANSACCIÓN.');
     }
   };
 
-  const handleCreateEvent = async () => {
-    if (!profile?.is_admin) return;
-    try {
-      const eventData = {
-        title: newTitle || `${newFighter1} vs ${newFighter2}`,
-        category: 'Combate Neural / MMA',
-        promoter: 'Alofoke K.O Syndicate',
-        pool: 0,
-        bets_count: 0,
-        fee: 5,
-        status: 'upcoming',
-        date: new Date().toISOString().split('T')[0],
-        fighters: [newFighter1, newFighter2],
-        options: [
-          { id: 'o1', label: `${newFighter1} Gana`, percentage: 45, pool: 0, sharePrice: 2.22 },
-          { id: 'o2', label: 'Empate', percentage: 10, pool: 0, sharePrice: 10.00 },
-          { id: 'o3', label: `${newFighter2} Gana`, percentage: 45, pool: 0, sharePrice: 2.22 }
-        ]
-      };
-      
-      await supabase.from('events').insert(eventData);
-      setNewFighter1('');
-      setNewFighter2('');
-      setNewTitle('');
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDeposit = async (amount: number) => {
+  const handleDeposit = async (amount: number, method: string) => {
     if (!user) return;
     try {
       await supabase.from('transactions').insert({
         user_id: user.id,
         type: 'deposit',
         amount,
-        method: 'crypto',
+        method,
         status: 'pending'
       });
-      alert('INYECCIÓN DE LIQUIDEZ PENDIENTE. ESPERANDO CONFIRMACIÓN DEL NODO.');
+      alert('NOTIFICACIÓN ENVIADA. ESPERANDO APROBACIÓN.');
+      if (profile?.is_admin) fetchPendingTransactions();
     } catch (err) {
       console.error(err);
     }
   };
+
+  const handleApproveTransaction = async (txId: string, userId: string, amount: number) => {
+    try {
+      const { data: userProfile } = await supabase.from('users').select('balance').eq('id', userId).single();
+      const newBalance = (userProfile?.balance || 0) + amount;
+      
+      const { error: upError } = await supabase.from('users').update({ balance: newBalance }).eq('id', userId);
+      if (upError) throw upError;
+
+      const { error: txError } = await supabase.from('transactions').update({ status: 'approved' }).eq('id', txId);
+      if (txError) throw txError;
+      
+      fetchPendingTransactions();
+      alert('TRANSACCIÓN APROBADA.');
+    } catch (err) {
+      console.error(err);
+      alert('ERROR AL APROBAR.');
+    }
+  };
+
+  const [depositAmount, setDepositAmount] = useState<number>(0);
+  const [depositMethod, setDepositMethod] = useState<string>('PAYPAL');
 
   const tabs = [
     { id: 'panel', label: 'SYS_PANEL', icon: LayoutDashboard },
@@ -356,8 +399,290 @@ export default function App() {
           </div>
         )}
 
+        {!user && (
+          <div className="min-h-[80vh] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-md w-full ko-card p-10 space-y-8 relative overflow-hidden"
+              style={{clipPath: 'polygon(30px 0, 100% 0, 100% calc(100% - 30px), calc(100% - 30px) 100%, 0 100%, 0 30px)'}}
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-ko-accent/10 blur-[50px] -mr-16 -mt-16" />
+              
+              <div className="text-center space-y-4">
+                <img src="/logo.png" alt="Alofoke K.O" className="w-32 h-32 mx-auto mix-blend-screen drop-shadow-[0_0_15px_rgba(255,42,42,0.5)]" />
+                <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white">
+                  AUTENTICACIÓN <span className="text-ko-cyan">REQUERIDA</span>
+                </h2>
+                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Protocolo de Acceso Seguro v4.0</p>
+              </div>
+
+              <form onSubmit={handleAuth} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">EMAIL_NODE</label>
+                  <input 
+                    type="email" 
+                    required
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    className="w-full bg-black/50 border border-ko-cyan/20 p-4 text-white mono focus:border-ko-cyan outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">ACCESS_CODE</label>
+                  <input 
+                    type="password" 
+                    required
+                    value={authPass}
+                    onChange={(e) => setAuthPass(e.target.value)}
+                    className="w-full bg-black/50 border border-ko-cyan/20 p-4 text-white mono focus:border-ko-cyan outline-none transition-all"
+                  />
+                </div>
+                
+                <button 
+                  type="submit"
+                  className="ko-btn-accent w-full py-4 text-[10px] flex items-center justify-center gap-3 font-black uppercase"
+                >
+                  <Shield className="w-4 h-4" /> 
+                  {authMode === 'login' ? 'INICIAR_SESIÓN' : 'REGISTRAR_NODO'}
+                </button>
+              </form>
+
+              <div className="text-center">
+                <button 
+                  onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+                  className="text-[10px] font-mono text-ko-cyan uppercase tracking-widest hover:text-white transition-colors"
+                >
+                  {authMode === 'login' ? '¿No tienes cuenta? REGISTRARSE' : '¿Ya tienes cuenta? LOGIN'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {user && activeTab === 'panel' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="ko-card p-6 border-l-4 border-l-ko-cyan">
+                <div className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest mb-2">BALANCE_TOTAL</div>
+                <div className="text-3xl font-black text-white mono">{profile?.balance.toLocaleString()} <span className="text-xs text-zinc-600">CRD</span></div>
+              </div>
+              <div className="ko-card p-6 border-l-4 border-l-ko-accent">
+                <div className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest mb-2">OPERACIONES_ACTIVAS</div>
+                <div className="text-3xl font-black text-white mono">{userBets.filter(b => b.status === 'pending').length}</div>
+              </div>
+              <div className="ko-card p-6 border-l-4 border-l-ko-gold">
+                <div className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest mb-2">RETORNO_TOTAL</div>
+                <div className="text-3xl font-black text-white mono">0 <span className="text-xs text-zinc-600">CRD</span></div>
+              </div>
+              <div className="ko-card p-6 border-l-4 border-l-zinc-500">
+                <div className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest mb-2">NIVEL_ACCESO</div>
+                <div className="text-3xl font-black text-white mono">{profile?.is_admin ? 'ADMIN' : 'USER'}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="ko-card overflow-hidden">
+                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center gap-3">
+                  <History className="w-4 h-4 text-ko-cyan" />
+                  <h3 className="text-xs font-black uppercase tracking-widest">HISTORIAL_OPERATIVO</h3>
+                </div>
+                <div className="divide-y divide-white/5 max-h-[400px] overflow-y-auto">
+                  {userBets.map(bet => (
+                    <div key={bet.id} className="p-4 flex justify-between items-center hover:bg-white/5 transition-colors">
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-black uppercase text-white">{bet.selection}</div>
+                        <div className="text-[9px] font-mono text-zinc-500">{new Date(bet.created_at).toLocaleString()}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="mono text-sm font-bold text-ko-cyan">{bet.amount} CRD</div>
+                        <div className={`text-[8px] font-black uppercase ${bet.status === 'won' ? 'text-green-500' : 'text-zinc-500'}`}>{bet.status}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="ko-card overflow-hidden">
+                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center gap-3">
+                  <Activity className="w-4 h-4 text-ko-accent" />
+                  <h3 className="text-xs font-black uppercase tracking-widest">ACTIVIDAD_RECIENTE</h3>
+                </div>
+                <div className="p-10 flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full border border-zinc-800 flex items-center justify-center">
+                    <Activity className="w-8 h-8 text-zinc-800" />
+                  </div>
+                  <p className="text-[9px] font-mono text-zinc-600 uppercase tracking-[0.3em]">Sincronizando con el nodo...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {user && activeTab === 'financiar' && (
+          <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="text-center space-y-2">
+              <h2 className="text-4xl font-black italic uppercase text-white">INYECCIÓN DE <span className="text-ko-cyan">LIQUIDEZ</span></h2>
+              <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Selecciona un protocolo de transferencia para cargar tu balance</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* PayPal */}
+              <div className="ko-card p-8 space-y-6 group hover:border-ko-cyan transition-all cursor-pointer">
+                <div className="w-12 h-12 bg-blue-500/10 rounded flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform">
+                  <CreditCard className="w-6 h-6 text-blue-500" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black uppercase text-white">PAYPAL</h3>
+                  <p className="text-[10px] font-mono text-zinc-500 uppercase mt-1">Confirmación: 1-5 MIN</p>
+                </div>
+                <div className="p-4 bg-black border border-white/5 text-[10px] font-mono text-ko-cyan break-all">
+                  {paymentAccounts.paypal}
+                </div>
+              </div>
+
+              {/* Bank */}
+              <div className="ko-card p-8 space-y-6 group hover:border-ko-gold transition-all cursor-pointer">
+                <div className="w-12 h-12 bg-ko-gold/10 rounded flex items-center justify-center border border-ko-gold/20 group-hover:scale-110 transition-transform">
+                  <Shield className="w-6 h-6 text-ko-gold" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black uppercase text-white">BANCO</h3>
+                  <p className="text-[10px] font-mono text-zinc-500 uppercase mt-1">Confirmación: 2-24 HRS</p>
+                </div>
+                <div className="p-4 bg-black border border-white/5 text-[10px] font-mono text-zinc-300">
+                  {paymentAccounts.bank}
+                </div>
+              </div>
+
+              {/* Crypto */}
+              <div className="ko-card p-8 space-y-6 group hover:border-ko-accent transition-all cursor-pointer">
+                <div className="w-12 h-12 bg-ko-accent/10 rounded flex items-center justify-center border border-ko-accent/20 group-hover:scale-110 transition-transform">
+                  <Bitcoin className="w-6 h-6 text-ko-accent" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black uppercase text-white">CRYPTO</h3>
+                  <p className="text-[10px] font-mono text-zinc-500 uppercase mt-1">Confirmación: 1 CONF</p>
+                </div>
+                <div className="p-4 bg-black border border-white/5 text-[10px] font-mono text-ko-accent break-all">
+                  {paymentAccounts.crypto}
+                </div>
+              </div>
+            </div>
+
+            <div className="ko-card p-10 bg-gradient-to-br from-zinc-950 to-black">
+              <h3 className="text-xs font-black uppercase tracking-widest mb-8 flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-ko-accent" /> NOTIFICAR DEPÓSITO
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <label className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">MONTO_A_CARGAR (CRD)</label>
+                  <input 
+                    type="number" 
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(Number(e.target.value))}
+                    placeholder="Ej: 500" 
+                    className="w-full bg-black border border-white/10 p-5 text-2xl font-black mono text-white focus:border-ko-cyan outline-none transition-all" 
+                  />
+                </div>
+                <div className="space-y-4">
+                  <label className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">MÉTODO_UTILIZADO</label>
+                  <select 
+                    value={depositMethod}
+                    onChange={(e) => setDepositMethod(e.target.value)}
+                    className="w-full bg-black border border-white/10 p-5 text-sm font-black uppercase text-white focus:border-ko-cyan outline-none transition-all appearance-none"
+                  >
+                    <option value="PAYPAL">PAYPAL</option>
+                    <option value="BANCO">BANCO</option>
+                    <option value="CRYPTO">CRYPTO</option>
+                  </select>
+                </div>
+              </div>
+              <button 
+                onClick={() => handleDeposit(depositAmount, depositMethod)} 
+                className="ko-btn-accent w-full mt-10 py-5 text-xs font-black uppercase"
+              >
+                ENVIAR_COMPROBANTE_DE_PAGO
+              </button>
+            </div>
+          </div>
+        )}
+
+        {user && activeTab === 'admin' && profile?.is_admin && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex justify-between items-end">
+              <h2 className="text-4xl font-black italic uppercase text-ko-accent">NODO_CONTROL <span className="text-white">ADMIN</span></h2>
+              <button onClick={() => {
+                const title = prompt('Título del Evento:');
+                const category = prompt('Categoría (BOXEO, UFC, etc):');
+                if (title && category) {
+                  supabase.from('events').insert({
+                    title,
+                    category,
+                    options: [
+                      { id: '1', label: 'COMBATIENTE A', percentage: 50 },
+                      { id: '2', label: 'COMBATIENTE B', percentage: 50 },
+                      { id: '3', label: 'EMPATE', percentage: 10 }
+                    ]
+                  }).then(() => fetchEvents());
+                }
+              }} className="ko-btn-cyan px-6 py-3 text-[10px]">CREAR_NUEVO_EVENTO</button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 ko-card overflow-hidden">
+                <div className="p-4 border-b border-white/5 bg-zinc-900 flex items-center gap-3">
+                  <AlertTriangle className="w-4 h-4 text-ko-gold" />
+                  <h3 className="text-xs font-black uppercase tracking-widest">DEPÓSITOS_PENDIENTES</h3>
+                </div>
+                <div className="divide-y divide-white/5">
+                  {pendingTransactions.length > 0 ? pendingTransactions.map(tx => (
+                    <div key={tx.id} className="p-6 flex justify-between items-center bg-black/40">
+                      <div>
+                        <div className="text-sm font-black text-white">{tx.users?.display_name || tx.users?.email}</div>
+                        <div className="text-[10px] font-mono text-zinc-500 uppercase">{tx.method} // {new Date(tx.created_at).toLocaleString()}</div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-2xl font-black text-ko-cyan mono">{tx.amount} CRD</div>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleApproveTransaction(tx.id, tx.user_id, tx.amount)} className="p-3 bg-green-500/10 border border-green-500/50 text-green-500 hover:bg-green-500 hover:text-white transition-all rounded">
+                            <CheckCircle2 className="w-5 h-5" />
+                          </button>
+                          <button onClick={() => supabase.from('transactions').update({ status: 'rejected' }).eq('id', tx.id).then(() => fetchPendingTransactions())} className="p-3 bg-ko-accent/10 border border-ko-accent/50 text-ko-accent hover:bg-ko-accent hover:text-white transition-all rounded">
+                            <XCircle className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="p-12 text-center text-zinc-600 font-mono text-[10px] uppercase">SIN_TRANSACCIONES_PENDIENTES</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="ko-card p-6 space-y-6">
+                <h3 className="text-xs font-black uppercase tracking-widest border-b border-white/5 pb-4">RESUMEN_SISTEMA</h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <span className="text-[10px] text-zinc-500 uppercase">Total Usuarios</span>
+                    <span className="mono text-white">--</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[10px] text-zinc-500 uppercase">Apuestas Activas</span>
+                    <span className="mono text-white">{events.reduce((acc, e) => acc + (e.bets_count || 0), 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[10px] text-zinc-500 uppercase">Volumen Total</span>
+                    <span className="mono text-ko-gold">{events.reduce((acc, e) => acc + (e.pool || 0), 0)} CRD</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {user && activeTab === 'mercado' && (
-          <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr_340px] gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr_340px] gap-8 animate-in fade-in zoom-in-95 duration-500">
             {/* Left Sidebar */}
             <aside className="space-y-6 hidden xl:block">
               <div className="stat-box">
