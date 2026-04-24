@@ -263,7 +263,7 @@ export default function App() {
       <header className="sticky top-0 z-50 h-20 border-b border-ko-cyan/20 ko-glass px-8 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setActiveTab('mercado')}>
-            <img src="/logo.png" alt="Alofoke K.O" className="w-16 h-16 object-contain transition-transform group-hover:scale-110" />
+            <img src="/logo.png" alt="Alofoke K.O" className="w-16 h-16 object-contain mix-blend-screen transition-transform group-hover:scale-110" />
             <div className="flex flex-col">
               <span className="text-[8px] text-ko-cyan uppercase tracking-[0.3em] font-mono mt-1">Neural Betting Node</span>
             </div>
@@ -336,7 +336,7 @@ export default function App() {
               
               <div className="relative z-10 space-y-6">
                 <div className="flex items-center justify-center mx-auto">
-                  <img src="/logo.png" alt="Alofoke K.O Logo" className="w-48 h-48 object-contain drop-shadow-[0_0_30px_rgba(255,42,42,0.6)] animate-pulse-glow" />
+                  <img src="/logo.png" alt="Alofoke K.O Logo" className="w-48 h-48 object-contain mix-blend-screen drop-shadow-[0_0_30px_rgba(255,42,42,0.6)] animate-pulse-glow" />
                 </div>
                 
                 <div className="space-y-2">
