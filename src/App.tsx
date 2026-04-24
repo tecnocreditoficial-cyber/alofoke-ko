@@ -2,82 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { 
   Trophy, 
   Wallet, 
-  History, 
   Settings, 
   Plus, 
-  Gamepad2, 
-  CreditCard, 
   Bitcoin, 
-  Landmark,
-  Shield,
-  Search,
-  LayoutDashboard,
-  Bell,
-  User as UserIcon,
-  ChevronRight,
   Target,
   LogOut,
-  LogIn
+  ChevronRight,
+  Activity,
+  Cpu,
+  Crosshair
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
-import { auth, db } from './lib/firebase';
-import { 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  onAuthStateChanged, 
-  signOut,
-  User
-} from 'firebase/auth';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  collection, 
-  query, 
-  where, 
-  onSnapshot,
-  addDoc,
-  serverTimestamp,
-  runTransaction
-} from 'firebase/firestore';
-
-// Error Handler
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: 'create' | 'update' | 'delete' | 'list' | 'get' | 'write';
-  path: string | null;
-  authInfo: {
-    userId: string;
-    email: string;
-    emailVerified: boolean;
-    isAnonymous: boolean;
-    providerInfo: any[];
-  }
-}
-
-function handleFirestoreError(err: any, operation: FirestoreErrorInfo['operationType'], path: string | null = null) {
-  if (err.code === 'permission-denied') {
-    const errorInfo: FirestoreErrorInfo = {
-      error: err.message,
-      operationType: operation,
-      path,
-      authInfo: {
-        userId: auth.currentUser?.uid || 'anonymous',
-        email: auth.currentUser?.email || '',
-        emailVerified: auth.currentUser?.emailVerified || false,
-        isAnonymous: auth.currentUser?.isAnonymous || false,
-        providerInfo: auth.currentUser?.providerData.map(p => ({
-          providerId: p.providerId,
-          displayName: p.displayName,
-          email: p.email
-        })) || []
-      }
-    };
-    throw new Error(JSON.stringify(errorInfo));
-  }
-  throw err;
-}
+import { supabase } from './lib/supabase';
 
 // Types
 interface MarketOption {
@@ -94,56 +31,38 @@ interface FightEvent {
   category: string;
   promoter: string;
   pool: number;
-  bets: number;
+  bets_count: number;
   fee: number;
   status: 'upcoming' | 'live' | 'finished' | 'cancelled';
   fighters: string[];
   options: MarketOption[];
   date: any;
+  created_at?: string;
 }
 
 interface UserProfile {
+  id: string;
   balance: number;
-  isAdmin: boolean;
-  displayName: string;
+  is_admin: boolean;
+  display_name: string;
 }
 
 interface BetRecord {
   id: string;
-  eventId: string;
+  event_id: string;
   selection: string;
   amount: number;
   status: string;
-  createdAt: any;
+  created_at: any;
 }
-
-const MOCK_EVENTS: FightEvent[] = [
-  {
-    id: '1',
-    title: 'Omega El Fuerte vs Gallo The Producer',
-    category: 'Boxeo/MMA',
-    promoter: 'Alofoke K.O',
-    pool: 12500,
-    bets: 142,
-    fee: 5,
-    status: 'upcoming',
-    date: '2026-05-20',
-    fighters: ['f1', 'f2'],
-    options: [
-      { id: 'o1', label: 'Omega El Fuerte Gana', percentage: 50, pool: 6250, sharePrice: 2.00 },
-      { id: 'o2', label: 'Empate', percentage: 20, pool: 2500, sharePrice: 5.00 },
-      { id: 'o3', label: 'Gallo The Producer Gana', percentage: 30, pool: 3750, sharePrice: 3.33 }
-    ]
-  }
-];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('mercado');
   const [selectedEvent, setSelectedEvent] = useState<FightEvent | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [userBets, setUserBets] = useState<BetRecord[]>([]);
-  const [events, setEvents] = useState<FightEvent[]>(MOCK_EVENTS);
+  const [events, setEvents] = useState<FightEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [betModalOpen, setBetModalOpen] = useState(false);
   const [betAmount, setBetAmount] = useState(10);
@@ -154,150 +73,133 @@ export default function App() {
   const [newFighter2, setNewFighter2] = useState('');
   const [newTitle, setNewTitle] = useState('');
   
-  // Payment account states (persistent in Firestore)
+  // Payment account states
   const [paymentAccounts, setPaymentAccounts] = useState({
     paypal: '',
     bank: '',
     crypto: ''
   });
 
-  useEffect(() => {
-    // Sync payment accounts from global settings
-    const unsub = onSnapshot(doc(db, 'settings', 'payments'), (s) => {
-      if (s.exists()) setPaymentAccounts(s.data() as any);
-    });
-    return unsub;
-  }, []);
-
-  const updatePaymentAccounts = async () => {
-    if (!profile?.isAdmin) return;
-    try {
-      await setDoc(doc(db, 'settings', 'payments'), paymentAccounts);
-      alert('Cuentas de pago actualizadas');
-    } catch (err) {
-      console.error(err);
+  const fetchEvents = async () => {
+    const { data } = await supabase.from('events').select('*').order('created_at', { ascending: false });
+    if (data) {
+      setEvents(data);
+      if (data.length > 0 && !selectedEvent) setSelectedEvent(data[0]);
     }
   };
 
+  const fetchProfile = async (uid: string) => {
+    const { data } = await supabase.from('users').select('*').eq('id', uid).single();
+    if (data) setProfile(data);
+  };
+
+  const fetchBets = async (uid: string) => {
+    const { data } = await supabase.from('bets').select('*').eq('user_id', uid).order('created_at', { ascending: false });
+    if (data) setUserBets(data);
+  };
+
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        const userRef = doc(db, 'users', u.uid);
-        try {
-          const snap = await getDoc(userRef);
-          if (!snap.exists()) {
-            const newProfile = { 
-              balance: 0, 
-              isAdmin: u.email === 'tecnocreditoficial@gmail.com', 
-              displayName: u.displayName || 'Anon' 
-            };
-            await setDoc(userRef, newProfile);
-            setProfile(newProfile);
-          } else {
-            setProfile(snap.data() as UserProfile);
-          }
-        } catch (err) {
-          console.error("Profile sync failed", err);
-        }
+    const loadSettings = async () => {
+      const { data } = await supabase.from('settings').select('data').eq('id', 'payments').single();
+      if (data) setPaymentAccounts(data.data);
+    };
+    loadSettings();
 
-        onSnapshot(userRef, (s) => {
-          if (s.exists()) setProfile(s.data() as UserProfile);
-        }, (err) => handleFirestoreError(err, 'get', `users/${u.uid}`));
+    fetchEvents();
 
-        const betsQuery = query(collection(db, 'bets'), where('userId', '==', u.uid));
-        onSnapshot(betsQuery, (s) => {
-          const bets: BetRecord[] = [];
-          s.forEach((d) => bets.push({ id: d.id, ...d.data() } as BetRecord));
-          setUserBets(bets.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
-        }, (err) => handleFirestoreError(err, 'list', 'bets'));
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        await fetchProfile(session.user.id);
+        await fetchBets(session.user.id);
       } else {
+        setUser(null);
         setProfile(null);
         setUserBets([]);
       }
       setLoading(false);
     });
-    return unsub;
-  }, []);
 
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'events'), (s) => {
-      if (s.empty) {
-        setEvents(MOCK_EVENTS);
-        setSelectedEvent(MOCK_EVENTS[0]);
-      } else {
-        const evs: FightEvent[] = [];
-        s.forEach(d => evs.push({ id: d.id, ...d.data() } as FightEvent));
-        setEvents(evs);
-        if (evs.length > 0) setSelectedEvent(evs[0]);
-      }
-    }, (err) => handleFirestoreError(err, 'list', 'events'));
-    return unsub;
-  }, []);
+    const eventsSub = supabase.channel('public:events')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => {
+        fetchEvents();
+      }).subscribe();
+
+    const profileSub = supabase.channel('public:users')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (payload) => {
+        if (payload.new.id === user?.id) setProfile(payload.new as UserProfile);
+      }).subscribe();
+
+    const betsSub = supabase.channel('public:bets')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bets' }, () => {
+        if (user) fetchBets(user.id);
+      }).subscribe();
+
+    return () => {
+      authListener.subscription.unsubscribe();
+      supabase.removeChannel(eventsSub);
+      supabase.removeChannel(profileSub);
+      supabase.removeChannel(betsSub);
+    };
+  }, [user?.id]);
 
   const handleLogin = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await supabase.auth.signInWithOAuth({ provider: 'google' });
     } catch (err) {
       console.error("Login failed", err);
     }
   };
 
-  const handleLogout = () => signOut(auth);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   const placeBet = async () => {
     if (!user || !profile || !selectedEvent || !selectedOption) return;
     if (betAmount > profile.balance) {
-      alert('Saldo insuficiente');
+      alert('SALDO INSUFICIENTE. RECARGA TUS FONDOS.');
       return;
     }
 
     try {
-      await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await transaction.get(userRef);
-        if (!userSnap.exists()) throw "User profile not found";
-        
-        const currentBalance = userSnap.data().balance;
-        if (currentBalance < betAmount) throw "Insufficient balance";
-
-        // 1. Create the bet
-        const betRef = doc(collection(db, 'bets'));
-        transaction.set(betRef, {
-          userId: user.uid,
-          eventId: selectedEvent.id,
-          selectionId: selectedOption.id,
-          selection: selectedOption.label,
-          amount: betAmount,
-          odds: (100 / selectedOption.percentage).toFixed(2),
-          status: 'pending',
-          createdAt: serverTimestamp()
-        });
-
-        // 2. Update user balance
-        transaction.update(userRef, {
-          balance: currentBalance - betAmount
-        });
-      });
+      const odds = (100 / selectedOption.percentage).toFixed(2);
       
+      const { error: betError } = await supabase.from('bets').insert({
+        user_id: user.id,
+        event_id: selectedEvent.id,
+        selection_id: selectedOption.id,
+        selection: selectedOption.label,
+        amount: betAmount,
+        odds: Number(odds),
+        status: 'pending'
+      });
+
+      if (betError) throw betError;
+
+      const { error: balanceError } = await supabase.from('users').update({
+        balance: profile.balance - betAmount
+      }).eq('id', user.id);
+
+      if (balanceError) throw balanceError;
+
       setBetModalOpen(false);
-      alert('Apuesta colocada con éxito');
+      // alert('TRANSACCIÓN CONFIRMADA EN LA RED.');
     } catch (err) {
       console.error(err);
-      alert('Error al realizar la apuesta');
+      alert('ERROR EN LA TRANSACCIÓN. INTENTA DE NUEVO.');
     }
   };
 
   const handleCreateEvent = async () => {
-    if (!profile?.isAdmin) return;
+    if (!profile?.is_admin) return;
     try {
       const eventData = {
         title: newTitle || `${newFighter1} vs ${newFighter2}`,
-        category: 'Boxeo/MMA',
-        promoter: 'Alofoke K.O',
+        category: 'Combate Neural / MMA',
+        promoter: 'Alofoke K.O Syndicate',
         pool: 0,
-        bets: 0,
+        bets_count: 0,
         fee: 5,
         status: 'upcoming',
         date: new Date().toISOString().split('T')[0],
@@ -306,75 +208,81 @@ export default function App() {
           { id: 'o1', label: `${newFighter1} Gana`, percentage: 45, pool: 0, sharePrice: 2.22 },
           { id: 'o2', label: 'Empate', percentage: 10, pool: 0, sharePrice: 10.00 },
           { id: 'o3', label: `${newFighter2} Gana`, percentage: 45, pool: 0, sharePrice: 2.22 }
-        ],
-        createdAt: serverTimestamp()
+        ]
       };
-      await addDoc(collection(db, 'events'), eventData);
-      alert('Evento creado exitosamente');
+      
+      await supabase.from('events').insert(eventData);
       setNewFighter1('');
       setNewFighter2('');
       setNewTitle('');
     } catch (err) {
-      handleFirestoreError(err, 'create', 'events');
+      console.error(err);
     }
   };
 
   const handleDeposit = async (amount: number) => {
     if (!user) return;
     try {
-      await addDoc(collection(db, 'transactions'), {
-        userId: user.uid,
+      await supabase.from('transactions').insert({
+        user_id: user.id,
         type: 'deposit',
         amount,
-        method: 'paypal',
-        status: 'pending',
-        createdAt: serverTimestamp()
+        method: 'crypto',
+        status: 'pending'
       });
-      alert('Solicitud de depósito enviada. Un administrador verificará su pago.');
+      alert('INYECCIÓN DE LIQUIDEZ PENDIENTE. ESPERANDO CONFIRMACIÓN DEL NODO.');
     } catch (err) {
-      handleFirestoreError(err, 'create', 'transactions');
+      console.error(err);
     }
   };
 
   const tabs = [
-    { id: 'panel', label: 'PANEL', icon: LayoutDashboard },
-    { id: 'mercado', label: 'MERCADO PREDICCIONES', icon: Target },
-    { id: 'financiar', label: 'FINANCIAR', icon: Wallet },
-    { id: 'admin', label: 'ADMINISTRACIÓN', icon: Settings, adminOnly: true },
-    { id: 'perfil', label: 'PERFIL', icon: UserIcon },
+    { id: 'panel', label: 'SYS_PANEL', icon: LayoutDashboard },
+    { id: 'mercado', label: 'MERCADO_PRED', icon: Target },
+    { id: 'financiar', label: 'FONDOS', icon: Wallet },
+    { id: 'admin', label: 'ADMIN_NODE', icon: Settings, adminOnly: true },
   ];
 
   if (loading) return (
-    <div className="min-h-screen bg-ko-bg flex items-center justify-center">
-      <div className="w-12 h-12 border-2 border-ko-accent border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen bg-[#030305] flex items-center justify-center">
+      <div className="relative w-24 h-24 flex items-center justify-center">
+        <div className="absolute inset-0 border-y-2 border-ko-cyan rounded-full animate-spin"></div>
+        <div className="absolute inset-2 border-x-2 border-ko-accent rounded-full animate-[spin_2s_reverse_infinite]"></div>
+        <div className="text-ko-cyan font-black text-xs italic tracking-widest">SYS_INI</div>
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-ko-bg text-zinc-100 flex flex-col font-sans">
-      {/* Header */}
-      <header className="sticky top-0 z-50 h-16 border-b border-ko-border ko-glass px-6 flex items-center justify-between">
-        <div className="flex items-center gap-6">
+    <div className="min-h-screen flex flex-col font-sans relative">
+      <div className="cyber-scanline" />
+
+      {/* Cyber Header */}
+      <header className="sticky top-0 z-50 h-20 border-b border-ko-cyan/20 ko-glass px-8 flex items-center justify-between">
+        <div className="flex items-center gap-8">
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setActiveTab('mercado')}>
-            <div className="w-8 h-8 bg-ko-accent rounded flex items-center justify-center font-extrabold text-xl italic transition-transform group-hover:scale-110">
+            <div className="w-12 h-12 bg-ko-accent/10 border border-ko-accent flex items-center justify-center font-black text-2xl italic shadow-[inset_0_0_10px_rgba(255,42,42,0.5)] transition-transform group-hover:scale-110" style={{clipPath: 'polygon(25% 0%, 100% 0%, 75% 100%, 0% 100%)'}}>
               A
             </div>
-            <h1 className="text-xl font-extrabold tracking-tighter uppercase">ALOFOKE <span className="text-ko-accent">K.O</span></h1>
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-black tracking-tighter uppercase leading-none">ALOFOKE <span className="text-ko-accent">K.O</span></h1>
+              <span className="text-[8px] text-ko-cyan uppercase tracking-[0.3em] font-mono">Neural Betting Node</span>
+            </div>
           </div>
           
-          <nav className="hidden md:flex gap-6 text-sm font-semibold uppercase tracking-widest text-zinc-400">
-            {tabs.filter(t => !t.adminOnly || profile?.isAdmin).map((tab) => (
+          <nav className="hidden md:flex gap-6 text-xs font-black uppercase tracking-widest text-zinc-500">
+            {tabs.filter(t => !t.adminOnly || profile?.is_admin).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "transition-all flex items-center gap-2",
+                  "transition-all flex items-center gap-2 h-20 border-b-2",
                   activeTab === tab.id 
-                    ? "text-white" 
-                    : "hover:text-zinc-200"
+                    ? "text-ko-cyan border-ko-cyan" 
+                    : "border-transparent hover:text-zinc-300 hover:border-zinc-700"
                 )}
               >
-                {tab.id === 'admin' ? 'ADMIN' : tab.label.split(' ')[0]}
+                <tab.icon className="w-4 h-4" /> {tab.label}
               </button>
             ))}
           </nav>
@@ -384,96 +292,127 @@ export default function App() {
           {user ? (
             <>
               <div className="flex flex-col items-end">
-                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Balanza</span>
-                <span className="mono text-green-500 font-bold tracking-tight text-sm">${(profile?.balance || 0).toLocaleString()} <span className="text-[10px] text-zinc-500">USD</span></span>
+                <span className="text-[8px] text-zinc-500 uppercase font-black tracking-widest">Saldo Activo</span>
+                <span className="mono text-ko-cyan font-black tracking-tight text-lg shadow-black drop-shadow-md">
+                  {profile?.balance.toLocaleString()} <span className="text-xs text-zinc-600">CRD</span>
+                </span>
               </div>
-              <div className="h-8 w-px bg-ko-border" />
-              <button onClick={handleLogout} className="p-2 hover:bg-ko-accent/10 rounded-full transition-colors group">
+              <div className="h-8 w-px bg-ko-cyan/20" />
+              <button onClick={handleLogout} className="p-2 hover:bg-ko-accent/20 rounded transition-colors group border border-transparent hover:border-ko-accent/30">
                 <LogOut className="w-4 h-4 text-zinc-500 group-hover:text-ko-accent" />
               </button>
-              <div className="w-9 h-9 rounded-full bg-zinc-800 border border-ko-border overflow-hidden p-[1px]">
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover rounded-full" />
-                ) : (
-                  <UserIcon className="w-full h-full text-zinc-500 p-1" />
-                )}
+              <div className="flex items-center gap-3 bg-black/50 border border-white/5 p-1 pr-3" style={{clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)'}}>
+                <div className="w-8 h-8 bg-zinc-900 border border-ko-cyan/50 overflow-hidden" style={{clipPath: 'polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px)'}}>
+                  {user.user_metadata?.avatar_url ? (
+                    <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <UserIcon className="w-full h-full text-zinc-500 p-1" />
+                  )}
+                </div>
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{profile?.display_name?.split(' ')[0] || 'GUEST'}</span>
               </div>
             </>
           ) : (
             <button 
               onClick={handleLogin}
-              className="px-5 py-2 bg-white text-black font-extrabold text-[10px] tracking-widest rounded transition-all hover:bg-zinc-200"
+              className="ko-btn-cyan px-6 py-2 text-[10px]"
             >
-              CONECTAR
+              INICIAR CONEXIÓN
             </button>
           )}
         </div>
       </header>
 
-      <main className="flex-1 max-w-[1440px] mx-auto w-full p-4 lg:p-6">
+      <main className="flex-1 max-w-[1500px] mx-auto w-full p-6 lg:p-8 relative z-10">
         {!user && (
-          <div className="h-[calc(100vh-200px)] flex items-center justify-center">
-            <div className="max-w-md w-full p-12 text-center ko-card bg-zinc-900/50 backdrop-blur-sm space-y-6">
-              <div className="w-16 h-16 bg-ko-accent rounded-xl flex items-center justify-center mx-auto shadow-2xl">
-                <Trophy className="w-8 h-8 text-white" />
+          <div className="h-[calc(100vh-200px)] flex flex-col items-center justify-center">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="max-w-xl w-full p-12 text-center ko-card space-y-8 relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-ko-cyan/10 blur-[60px] rounded-full" />
+              <div className="absolute bottom-0 left-0 w-40 h-40 bg-ko-accent/10 blur-[60px] rounded-full" />
+              
+              <div className="relative z-10 space-y-6">
+                <div className="w-24 h-24 bg-zinc-950 border-2 border-ko-cyan/30 flex items-center justify-center mx-auto" style={{clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)'}}>
+                  <Cpu className="w-10 h-10 text-ko-cyan animate-pulse" />
+                </div>
+                
+                <div className="space-y-2">
+                  <h2 className="text-5xl font-black italic uppercase tracking-tighter drop-shadow-lg text-white">
+                    SINDICATO <span className="text-ko-accent">K.O</span>
+                  </h2>
+                  <p className="text-ko-cyan text-[10px] font-mono uppercase tracking-[0.4em]">Protocolo de Apuestas Descentralizado v3.1</p>
+                </div>
+                
+                <div className="pt-6 border-t border-white/5">
+                  <button 
+                    onClick={handleLogin}
+                    className="ko-btn-accent w-full py-5 text-sm flex items-center justify-center gap-3"
+                  >
+                    <Target className="w-5 h-5" /> AUTENTICAR IDENTIDAD
+                  </button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <h2 className="text-3xl font-extrabold italic uppercase leading-none">ALOFOKE <span className="text-ko-accent">K.O</span></h2>
-                <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Acceso Restringido • Nodo de Mercado Oficial</p>
-              </div>
-              <button 
-                onClick={handleLogin}
-                className="w-full py-4 bg-ko-accent text-white font-extrabold tracking-widest rounded hover:brightness-110 active:scale-95 transition-all uppercase text-xs"
-              >
-                Conectar con Google
-              </button>
-            </div>
+            </motion.div>
           </div>
         )}
 
         {user && activeTab === 'mercado' && (
-          <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_320px] gap-6">
-            {/* Left Sidebar - Mis Apuestas */}
-            <aside className="space-y-6 hidden lg:block">
+          <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr_340px] gap-8">
+            {/* Left Sidebar */}
+            <aside className="space-y-6 hidden xl:block">
               <div className="stat-box">
-                <div className="text-[10px] uppercase text-zinc-500 mb-1 font-bold tracking-widest">Historial Saldo</div>
-                <div className="text-2xl font-bold mono text-zinc-100">${(profile?.balance || 0).toLocaleString()}</div>
-                <div className="text-[10px] text-green-400 font-bold uppercase tracking-tight">+12% este mes</div>
+                <div className="text-[9px] uppercase text-ko-cyan mb-2 font-black tracking-widest flex items-center gap-2">
+                  <Activity className="w-3 h-3" /> FONDOS_ACTIVOS
+                </div>
+                <div className="text-4xl font-black mono text-white tracking-tighter">
+                  {profile?.balance.toLocaleString()}
+                  <span className="text-xs text-zinc-600 ml-1">CRD</span>
+                </div>
+                <div className="h-1 w-full bg-zinc-900 mt-4 rounded-full overflow-hidden">
+                  <div className="h-full bg-ko-cyan w-1/3 shadow-[0_0_10px_#00f0ff]" />
+                </div>
               </div>
 
-              <div className="flex flex-col gap-3">
-                <h3 className="text-[11px] uppercase font-bold text-zinc-500 tracking-wider flex items-center gap-2">
-                  <Target className="w-3 h-3" /> Mis Apuestas
+              <div className="flex flex-col gap-4">
+                <h3 className="text-[10px] uppercase font-black text-zinc-500 tracking-widest border-b border-white/5 pb-2">
+                  LOG_TRANSACCIONES
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {userBets.length > 0 ? userBets.slice(0, 5).map((bet) => (
-                    <div key={bet.id} className="p-3 rounded bg-zinc-900 border-l-2 border-ko-accent/50 text-[11px] font-medium transition-colors hover:bg-zinc-800">
-                      <div className="flex justify-between font-bold mb-1">
-                        <span className="truncate uppercase">{bet.selection}</span>
-                        <span className="text-zinc-500 mono">${bet.amount}</span>
+                    <div key={bet.id} className="p-4 bg-zinc-950 border border-white/5 border-l-2 border-l-ko-accent text-[11px] font-bold transition-all hover:bg-zinc-900 hover:border-ko-cyan" style={{clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%)'}}>
+                      <div className="flex justify-between mb-2">
+                        <span className="truncate uppercase text-zinc-300 pr-2">{bet.selection}</span>
+                        <span className="text-ko-cyan mono">{bet.amount} CRD</span>
                       </div>
-                      <div className="flex justify-between items-center text-[9px] text-zinc-500 uppercase tracking-widest">
-                        <span>{bet.createdAt?.toDate().toLocaleDateString()}</span>
-                        <span className={cn(bet.status === 'pending' ? 'text-zinc-400' : 'text-green-500')}>{bet.status}</span>
+                      <div className="flex justify-between items-center text-[9px] text-zinc-600 uppercase tracking-widest">
+                        <span>{new Date(bet.created_at).toLocaleDateString()}</span>
+                        <span className={cn(bet.status === 'pending' ? 'text-zinc-500' : 'text-ko-cyan')}>{bet.status}</span>
                       </div>
                     </div>
                   )) : (
-                    <div className="p-8 text-center text-[10px] text-zinc-600 uppercase font-bold border border-zinc-800 rounded bg-zinc-900/30 italic">
-                      Sin actividad
+                    <div className="p-8 text-center text-[9px] text-zinc-600 uppercase font-mono border border-zinc-800/50 bg-black/30">
+                      NO_RECORDS_FOUND
                     </div>
                   )}
                 </div>
-                <button className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest hover:text-white transition-colors text-left px-1 mt-1">Ver todo el historial ↗</button>
               </div>
             </aside>
 
-            {/* Main Content - Mercados */}
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-extrabold italic uppercase tracking-tighter">CARTELERA: <span className="text-ko-accent">MAIN EVENT</span></h2>
+            {/* Main Content */}
+            <div className="space-y-8">
+              <div className="flex items-center justify-between border-b border-ko-cyan/20 pb-4">
+                <h2 className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3">
+                  <Crosshair className="w-8 h-8 text-ko-accent" />
+                  CARTELERA <span className="text-ko-cyan">GLOBAL</span>
+                </h2>
                 <div className="flex gap-2">
-                  <span className="bg-zinc-900 px-3 py-1 rounded text-[10px] font-bold uppercase border border-ko-border text-green-400">VIVO</span>
-                  <span className="bg-zinc-900 px-3 py-1 rounded text-[10px] font-bold uppercase border border-ko-border text-zinc-500">PRÓXIMOS</span>
+                  <span className="bg-ko-accent/10 px-4 py-1.5 rounded-sm text-[10px] font-black uppercase border border-ko-accent text-ko-accent live-glow mono tracking-widest">
+                    ON_AIR
+                  </span>
                 </div>
               </div>
 
@@ -481,30 +420,34 @@ export default function App() {
                 {selectedEvent && (
                   <motion.div 
                     key={selectedEvent.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="ko-card overflow-hidden"
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="ko-card"
                   >
-                    <div className="p-5 border-b border-ko-border flex justify-between items-center bg-zinc-900/30">
-                      <div className="flex items-center gap-3">
-                        <div className="w-1 h-4 bg-ko-accent rounded-full" />
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-black/60 backdrop-blur-md">
+                      <div className="flex items-center gap-4">
+                        <div className="w-2 h-12 bg-gradient-to-b from-ko-accent to-ko-cyan rounded shadow-[0_0_15px_rgba(0,240,255,0.4)]" />
                         <div>
-                          <h3 className="text-lg font-extrabold uppercase leading-none tracking-tight">{selectedEvent.title}</h3>
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{selectedEvent.category} • {selectedEvent.promoter}</span>
+                          <h3 className="text-2xl font-black uppercase leading-none tracking-tight mb-2 text-white">{selectedEvent.title}</h3>
+                          <span className="text-[10px] font-mono text-ko-cyan uppercase tracking-widest bg-ko-cyan/10 px-2 py-1 rounded-sm border border-ko-cyan/20">
+                            {selectedEvent.category} // {selectedEvent.promoter}
+                          </span>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-[9px] font-bold text-zinc-500 uppercase">Pool Total</div>
-                        <div className="mono text-zinc-100 font-bold">${(selectedEvent.pool || 0).toLocaleString()}</div>
+                        <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">LIQUIDITY_POOL</div>
+                        <div className="mono text-2xl text-ko-gold font-black drop-shadow-[0_0_10px_rgba(255,215,0,0.3)]">
+                          {selectedEvent.pool.toLocaleString()} <span className="text-xs text-zinc-600">CRD</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {selectedEvent.options.map((option) => (
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-ko-accent/5 via-transparent to-transparent">
+                      {selectedEvent.options?.map((option) => (
                         <div key={option.id} className="group relative">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase truncate pr-2">{option.label}</span>
-                            <span className="mono text-zinc-500 text-[10px]">{option.percentage.toFixed(0)}%</span>
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-[11px] font-black text-zinc-300 uppercase truncate pr-2">{option.label}</span>
+                            <span className="mono text-ko-cyan text-[10px] font-bold bg-ko-cyan/10 px-2 py-0.5 border border-ko-cyan/20">{option.percentage.toFixed(0)}%</span>
                           </div>
                           <button 
                             onClick={() => {
@@ -512,285 +455,112 @@ export default function App() {
                               setBetAmount(10);
                               setBetModalOpen(true);
                             }}
-                            className="ko-btn-outline w-full p-4 rounded flex flex-col items-center gap-1 group-hover:border-ko-accent"
+                            className="ko-btn-outline w-full p-6 flex flex-col items-center gap-2 group-hover:-translate-y-1 group-hover:border-ko-cyan transition-all duration-300 relative overflow-hidden"
+                            style={{clipPath: 'polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px)'}}
                           >
-                            <span className="mono font-bold text-lg text-zinc-100 italic">x{(100/option.percentage).toFixed(2)}</span>
-                            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest group-hover:text-ko-accent">Cuota fija</span>
+                            <div className="absolute top-0 right-0 w-8 h-8 bg-gradient-to-bl from-ko-cyan/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <span className="mono font-black text-3xl text-white italic group-hover:text-ko-cyan transition-colors">x{(100/option.percentage).toFixed(2)}</span>
+                            <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">MULTIPLICADOR_NETO</span>
                           </button>
                         </div>
                       ))}
                     </div>
 
-                    <div className="px-6 py-4 bg-zinc-900/50 border-t border-ko-border flex flex-wrap gap-6 items-center">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Cierre</span>
-                        <span className="mono text-xs font-bold text-zinc-400 italic">21:00 GMT-5</span>
+                    <div className="px-8 py-4 bg-zinc-950 border-t border-ko-cyan/20 flex flex-wrap gap-12 items-center">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">SYS_TIMEOUT</span>
+                        <span className="mono text-xs font-bold text-zinc-300">21:00 GMT-5</span>
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Apuestas</span>
-                        <span className="mono text-xs font-bold text-zinc-400 italic">{selectedEvent.bets}</span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">VOLUMEN_OP</span>
+                        <span className="mono text-xs font-bold text-ko-cyan">{selectedEvent.bets_count}</span>
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Fee</span>
-                        <span className="mono text-xs font-bold text-zinc-400 italic">{selectedEvent.fee}%</span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">NETWORK_FEE</span>
+                        <span className="mono text-xs font-bold text-ko-accent">{selectedEvent.fee}%</span>
                       </div>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                 {events.filter(e => e.id !== (selectedEvent?.id || '')).map(event => (
-                  <div key={event.id} onClick={() => setSelectedEvent(event)} className="p-4 ko-card bg-zinc-900/30 flex justify-between items-center cursor-pointer group">
-                    <div className="space-y-1">
-                      <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-zinc-600 rounded-full group-hover:bg-ko-accent transition-colors" /> {event.category}
+                  <div key={event.id} onClick={() => setSelectedEvent(event)} className="p-5 bg-zinc-950 border border-white/5 flex justify-between items-center cursor-pointer group hover:border-ko-cyan transition-all" style={{clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)'}}>
+                    <div className="space-y-2">
+                      <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                        <div className="w-2 h-2 bg-zinc-800 group-hover:bg-ko-cyan transition-colors" /> {event.category}
                       </span>
-                      <h4 className="text-sm font-extrabold uppercase tracking-tight group-hover:text-ko-accent transition-colors">{event.title}</h4>
+                      <h4 className="text-sm font-black uppercase tracking-tight text-zinc-400 group-hover:text-white transition-colors">{event.title}</h4>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-zinc-700 group-hover:text-zinc-400" />
+                    <ChevronRight className="w-5 h-5 text-zinc-700 group-hover:text-ko-cyan transition-colors" />
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Right Sidebar - Bet Slip & Payments */}
+            {/* Right Sidebar - Bet Slip */}
             <aside className="space-y-6">
-              <div className="bet-slip h-full ko-card bg-zinc-900/50 backdrop-blur-md sticky top-24">
-                <h3 className="text-xs font-bold uppercase tracking-widest border-b border-ko-border pb-4 flex items-center gap-2">
-                  <Plus className="w-3 h-3 text-ko-accent" /> Cupón de Apuesta
-                </h3>
+              <div className="ko-card bg-black/60 backdrop-blur-xl sticky top-28 flex flex-col h-auto min-h-[500px]">
+                <div className="p-6 border-b border-ko-cyan/20">
+                  <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-ko-cyan">
+                    <Crosshair className="w-4 h-4" /> TERMINAL_OP
+                  </h3>
+                </div>
                 
-                <div className="space-y-4 pt-2">
-                  {selectedEvent && (
-                    <div className="p-4 rounded bg-zinc-950 border border-ko-border relative group">
-                      <div className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Mercado Seleccionado</div>
-                      <div className="font-extrabold text-sm mb-3 uppercase tracking-tight">{selectedEvent.title}</div>
-                      <div className="flex justify-between items-center gap-4">
-                        <div className="mono text-xs text-ko-accent font-bold italic">Cuota: 1.45</div>
-                        <input 
-                          type="text" 
-                          placeholder="Monto $" 
-                          className="w-24 bg-zinc-900 border border-ko-border rounded p-2 text-right text-sm mono focus:border-ko-accent outline-none"
-                        />
+                <div className="p-6 flex-1">
+                  {selectedEvent ? (
+                    <div className="space-y-6">
+                      <div className="p-5 bg-zinc-950 border border-ko-accent/30 relative group" style={{clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)'}}>
+                        <div className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest mb-2">TARGET_LOCKED</div>
+                        <div className="font-black text-sm mb-4 uppercase tracking-tight text-white">{selectedEvent.title}</div>
+                        <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                          <div className="mono text-xs text-zinc-400">STATUS: <span className="text-ko-accent font-black">AWAITING_INPUT</span></div>
+                        </div>
                       </div>
-                      <div className="absolute -top-2 -right-2 bg-zinc-800 border border-ko-border w-5 h-5 rounded-full flex items-center justify-center text-[10px] cursor-pointer hover:bg-ko-accent transition-colors">×</div>
+
+                      <div className="space-y-4 text-xs font-bold p-2">
+                        <div className="flex justify-between text-zinc-500">
+                          <span className="uppercase text-[9px] tracking-widest">NETWORK_FEE ({selectedEvent.fee}%)</span>
+                          <span className="mono">AUTO</span>
+                        </div>
+                        <div className="flex justify-between font-black text-sm border-t border-ko-cyan/20 pt-4 mt-4 text-white">
+                          <span className="uppercase tracking-widest text-[10px] text-ko-cyan">RETORNO_CALC</span>
+                          <span className="text-ko-gold mono text-lg drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]">--- CRD</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-center p-8">
+                      <div className="space-y-4">
+                        <div className="w-16 h-16 border border-zinc-800 rounded-full flex items-center justify-center mx-auto">
+                          <Target className="w-6 h-6 text-zinc-700" />
+                        </div>
+                        <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">AWAITING_SELECTION...</p>
+                      </div>
                     </div>
                   )}
-
-                  <div className="mt-6 space-y-2 text-[11px] font-medium p-1">
-                    <div className="flex justify-between text-zinc-500">
-                      <span>Monto de apuesta</span>
-                      <span className="mono">$0.00</span>
-                    </div>
-                    <div className="flex justify-between text-zinc-500">
-                      <span>Comisión de red (5%)</span>
-                      <span className="mono">$0.00</span>
-                    </div>
-                    <div className="flex justify-between font-extrabold text-sm border-t border-ko-border pt-3 mt-3">
-                      <span className="uppercase tracking-tight">Retorno Potencial</span>
-                      <span className="text-green-500 mono italic font-bold leading-none">$0.00</span>
-                    </div>
-                  </div>
                 </div>
 
-                <div className="flex flex-col gap-3 py-4 border-t border-ko-border mt-auto">
-                  <h4 className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Método de Validación</h4>
-                  <div className="flex flex-wrap gap-2">
-                    <div className="payment-pill group" onClick={() => handleDeposit(50)}>
-                      <span className="group-hover:scale-125 transition-transform">🅿️</span>
-                      <span className="font-bold tracking-tight">PayPal</span>
+                <div className="p-6 bg-zinc-950 border-t border-white/5">
+                  <h4 className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest mb-4">INYECCIÓN_RAPIDA</h4>
+                  <div className="flex gap-2 mb-6">
+                    <div className="payment-pill flex-1 justify-center" onClick={() => handleDeposit(100)}>
+                      100 CRD
                     </div>
-                    <div className="payment-pill group" onClick={() => handleDeposit(200)}>
-                      <span className="group-hover:scale-125 transition-transform text-orange-500">₿</span>
-                      <span className="font-bold tracking-tight">Crypto</span>
-                    </div>
-                    <div className="payment-pill group" onClick={() => handleDeposit(100)}>
-                      <span className="group-hover:scale-125 transition-transform text-blue-400">🏦</span>
-                      <span className="font-bold tracking-tight">Banco</span>
+                    <div className="payment-pill flex-1 justify-center border-ko-cyan/30 text-ko-cyan" onClick={() => handleDeposit(500)}>
+                      500 CRD
                     </div>
                   </div>
+                  <button className="ko-btn-accent w-full py-4 text-[10px] opacity-50 cursor-not-allowed">
+                    EJECUTAR_OP
+                  </button>
                 </div>
-
-                <button className="w-full py-4 bg-white text-black font-extrabold uppercase text-[10px] tracking-widest shadow-xl hover:bg-zinc-200 transition-all rounded">
-                  Confirmar Operación
-                </button>
               </div>
             </aside>
           </div>
         )}
 
-        {user && activeTab === 'financiar' && (
-          <div className="max-w-4xl mx-auto space-y-8 py-12">
-            <div className="text-center space-y-3">
-              <h2 className="text-4xl font-extrabold italic uppercase tracking-tighter">FINANCIAR <span className="text-ko-accent">CAPITAL</span></h2>
-              <div className="h-1 w-20 bg-ko-accent mx-auto" />
-              <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em]">Inyección de liquidez Nodo KO-Market</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[
-                { id: 'paypal', label: 'PayPal Instant', icon: CreditCard, amount: 50, detail: 'Validación inmediata' },
-                { id: 'bank', label: 'Bank SEPA', icon: Landmark, amount: 100, detail: '1-2 Horas red' },
-                { id: 'crypto', label: 'Blockchain L2', icon: Bitcoin, amount: 200, detail: 'Confirmación minera' }
-              ].map((item) => (
-                <div key={item.id} onClick={() => handleDeposit(item.amount)} className="p-8 ko-card bg-zinc-900 flex flex-col items-center gap-6 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 group">
-                  <div className="w-14 h-14 bg-zinc-950 rounded flex items-center justify-center border border-ko-border group-hover:border-ko-accent transition-colors">
-                    <item.icon className="w-6 h-6 group-hover:text-ko-accent transition-colors" />
-                  </div>
-                  <div className="text-center">
-                    <span className="text-sm font-extrabold tracking-widest uppercase">{item.label}</span>
-                    <div className="mt-2 text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{item.detail}</div>
-                  </div>
-                  <div className="w-full pt-4 border-t border-ko-border mt-2 font-black mono text-zinc-100 flex justify-center items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" /> ${item.amount} <span className="text-[10px] text-zinc-600">USD</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {user && activeTab === 'admin' && profile?.isAdmin && (
-          <div className="max-w-6xl mx-auto space-y-8 py-10">
-            <div className="flex justify-between items-end">
-              <div>
-                <h2 className="text-3xl font-extrabold italic uppercase tracking-tighter">CENTRO DE <span className="text-ko-accent">COMANDO</span></h2>
-                <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Gestión de Mercados y Liquidación</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-6">
-                {/* ... (Nueva Cartelera unchanged) */}
-                
-                <div className="ko-card p-8 bg-zinc-900/50 space-y-6 border-ko-accent/30 shadow-[0_0_30px_rgba(255,59,48,0.05)]">
-                  <h3 className="text-sm font-bold uppercase tracking-[0.3em] text-ko-accent border-b border-ko-border pb-4">Nueva Cartelera</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-bold text-zinc-500 uppercase">Peleador 1</label>
-                      <input 
-                        value={newFighter1}
-                        onChange={(e) => setNewFighter1(e.target.value)}
-                        placeholder="Campeón" 
-                        className="w-full bg-zinc-950 border border-ko-border p-3 text-sm focus:border-ko-accent transition-all mono outline-none"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-bold text-zinc-500 uppercase">Peleador 2</label>
-                      <input 
-                        value={newFighter2}
-                        onChange={(e) => setNewFighter2(e.target.value)}
-                        placeholder="Retador" 
-                        className="w-full bg-zinc-950 border border-ko-border p-3 text-sm focus:border-ko-accent transition-all mono outline-none"
-                      />
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                      <label className="text-[9px] font-bold text-zinc-500 uppercase">Título del Evento (Opcional)</label>
-                      <input 
-                        value={newTitle}
-                        onChange={(e) => setNewTitle(e.target.value)}
-                        placeholder="Ej: Main Event • Santo Domingo" 
-                        className="w-full bg-zinc-950 border border-ko-border p-3 text-sm focus:border-ko-accent transition-all mono outline-none"
-                      />
-                    </div>
-                  </div>
-                  <button 
-                    onClick={handleCreateEvent}
-                    className="w-full py-4 bg-ko-accent text-white font-extrabold uppercase text-xs tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-xl"
-                  >
-                    Lanzar Mercado en Vivo
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {events.map((event, i) => (
-                    <div key={i} className="ko-card bg-zinc-900/50 p-6 space-y-4 group border-l-2 border-l-zinc-800 hover:border-l-ko-accent transition-all">
-                      <div className="flex justify-between items-start">
-                        <div className="text-zinc-600 group-hover:text-ko-accent transition-colors">
-                          <Trophy className="w-5 h-5" />
-                        </div>
-                        <span className={cn(
-                          "text-[9px] font-bold tracking-widest px-2 py-1 rounded uppercase border font-mono italic",
-                          event.status === 'upcoming' ? "bg-zinc-950 text-zinc-400 border-zinc-800" : "bg-ko-accent/10 text-ko-accent border-ko-accent/20"
-                        )}>
-                          {event.status}
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="font-extrabold text-base uppercase tracking-tight group-hover:text-ko-accent transition-colors">{event.title}</h3>
-                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">{event.category}</p>
-                      </div>
-                      <div className="pt-4 border-t border-ko-border flex justify-between items-center">
-                        <div className="flex flex-col">
-                          <span className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">Liquid Pool</span>
-                          <span className="text-sm font-bold mono text-zinc-200 tracking-tighter">${(event.pool || 0).toLocaleString()}</span>
-                        </div>
-                        <button className="p-2 bg-zinc-950 border border-ko-border rounded hover:border-ko-accent transition-colors">
-                          <Settings className="w-4 h-4 text-zinc-500" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Sidebar Admin: Configuración de Pagos */}
-              <div className="space-y-6">
-                <div className="ko-card p-6 bg-zinc-900/50 space-y-6 border-zinc-800">
-                  <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400 border-b border-ko-border pb-3 flex items-center gap-2">
-                    <Shield className="w-3 h-3 text-ko-accent" /> CONFIGURACIÓN NODO
-                  </h3>
-                  
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[8px] font-bold text-zinc-500 uppercase">PayPal de Recaudación</label>
-                      <input 
-                        value={paymentAccounts.paypal}
-                        onChange={(e) => setPaymentAccounts(prev => ({ ...prev, paypal: e.target.value }))}
-                        placeholder="email@paypal.com" 
-                        className="w-full bg-zinc-950 border border-ko-border p-3 text-xs focus:border-ko-accent transition-all mono outline-none"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[8px] font-bold text-zinc-500 uppercase">Cuenta Bancaria (Instrucciones)</label>
-                      <textarea 
-                        value={paymentAccounts.bank}
-                        onChange={(e) => setPaymentAccounts(prev => ({ ...prev, bank: e.target.value }))}
-                        placeholder="Banco: XYZ, Cuenta: 000..." 
-                        className="w-full bg-zinc-950 border border-ko-border p-3 text-xs focus:border-ko-accent transition-all mono outline-none h-20 resize-none"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[8px] font-bold text-zinc-500 uppercase">Wallet Crypto (BTC/USDT)</label>
-                      <input 
-                        value={paymentAccounts.crypto}
-                        onChange={(e) => setPaymentAccounts(prev => ({ ...prev, crypto: e.target.value }))}
-                        placeholder="0x..." 
-                        className="w-full bg-zinc-950 border border-ko-border p-3 text-xs focus:border-ko-accent transition-all mono outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <button 
-                    onClick={updatePaymentAccounts}
-                    className="w-full py-3 bg-zinc-800 text-white font-extrabold uppercase text-[9px] tracking-widest hover:bg-zinc-700 transition-all rounded border border-zinc-700"
-                  >
-                    Guardar Configuración
-                  </button>
-
-                  <div className="p-4 bg-ko-accent/5 border border-ko-accent/20 rounded space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[8px] font-bold text-zinc-500 uppercase">Comisión de la Casa</span>
-                      <span className="text-ko-accent font-black mono text-xs">5.00%</span>
-                    </div>
-                    <p className="text-[8px] text-zinc-600 uppercase leading-relaxed font-bold">La casa retiene automáticamente el 5% de cada pozo para mantenimiento de nodo y comisiones de red.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
 
       {/* Betting Modal */}
@@ -800,88 +570,70 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 ko-glass"
           >
             <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
+              initial={{ scale: 0.95, y: 10 }}
               animate={{ scale: 1, y: 0 }}
-              className="max-w-sm w-full ko-card bg-zinc-900 overflow-hidden shadow-2xl border-ko-accent/20"
+              className="max-w-md w-full bg-zinc-950 border border-ko-cyan/50 shadow-[0_0_40px_rgba(0,240,255,0.15)] relative overflow-hidden"
+              style={{clipPath: 'polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px)'}}
             >
-              <div className="p-1 bg-ko-accent shadow-[0_0_20px_rgba(255,59,48,0.3)]" />
-              <div className="p-8 space-y-8">
-                <div className="space-y-1">
-                  <h3 className="text-2xl font-extrabold italic uppercase italic border-b border-ko-border pb-3">Ticket de <span className="text-ko-accent">Apuesta</span></h3>
-                  <div className="flex flex-col pt-2">
-                    <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest">Selección</span>
-                    <span className="text-zinc-100 font-bold uppercase text-sm">{selectedOption.label}</span>
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-ko-cyan via-ko-accent to-ko-cyan" />
+              <div className="p-8 space-y-8 relative z-10">
+                <div className="flex justify-between items-start border-b border-white/10 pb-4">
+                  <div>
+                    <h3 className="text-2xl font-black italic uppercase text-white">CONFIRMAR <span className="text-ko-cyan">OP</span></h3>
+                    <p className="text-[10px] text-zinc-500 font-mono tracking-widest mt-1">SINDICATO K.O // TX_NODE</p>
                   </div>
+                  <div className="w-8 h-8 border border-ko-accent text-ko-accent flex items-center justify-center font-bold text-xs">!</div>
                 </div>
-
-                <div className="space-y-4">
+                
+                <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest flex justify-between">
-                      <span>Monto de apuesta</span>
-                      <span className="text-ko-accent">Balance: ${profile?.balance.toLocaleString()}</span>
+                    <label className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest flex justify-between">
+                      <span>MONTO_CRD</span>
+                      <span className="text-ko-cyan">FONDOS: {profile?.balance.toLocaleString()}</span>
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-zinc-500">$</span>
-                      <input 
-                        type="number"
-                        value={betAmount}
-                        onChange={(e) => setBetAmount(Number(e.target.value))}
-                        className="w-full bg-zinc-950 border border-ko-border p-4 pl-8 text-xl font-bold mono focus:border-ko-accent transition-all outline-none"
-                      />
-                    </div>
+                    <input 
+                      type="number"
+                      value={betAmount}
+                      onChange={(e) => setBetAmount(Number(e.target.value))}
+                      className="w-full bg-black border border-ko-cyan/30 p-5 text-3xl font-black mono text-ko-cyan focus:border-ko-cyan focus:shadow-[0_0_15px_rgba(0,240,255,0.2)] outline-none transition-all"
+                      style={{clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)'}}
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-zinc-950 p-4 border border-ko-border">
-                      <span className="text-[8px] font-bold text-zinc-500 uppercase block mb-1">Cuota</span>
-                      <span className="mono text-xl font-bold italic">x{(100/selectedOption.percentage).toFixed(2)}</span>
+                    <div className="bg-black p-5 border border-white/5" style={{clipPath: 'polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px)'}}>
+                      <span className="text-[9px] font-mono text-zinc-500 uppercase block mb-2">MULTIPLICADOR</span>
+                      <span className="mono text-2xl font-black italic text-white">x{(100/selectedOption.percentage).toFixed(2)}</span>
                     </div>
-                    <div className="bg-zinc-950 p-4 border border-ko-border">
-                      <span className="text-[8px] font-bold text-zinc-500 uppercase block mb-1">Retorno</span>
-                      <span className="mono text-xl font-bold text-green-500 italic">${(betAmount * (100/selectedOption.percentage)).toFixed(2)}</span>
+                    <div className="bg-ko-accent/10 p-5 border border-ko-accent/30" style={{clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)'}}>
+                      <span className="text-[9px] font-mono text-ko-accent uppercase block mb-2">PROFIT_EST</span>
+                      <span className="mono text-2xl font-black text-white italic drop-shadow-[0_0_5px_rgba(255,42,42,0.8)]">{(betAmount * (100/selectedOption.percentage)).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4">
+                <div className="flex gap-4 pt-4">
                   <button 
                     onClick={() => setBetModalOpen(false)}
-                    className="flex-1 py-4 bg-zinc-800 text-zinc-400 font-bold uppercase text-[10px] tracking-widest hover:bg-zinc-700 transition-all rounded"
+                    className="ko-btn-cyan flex-1 py-4 text-[10px]"
                   >
-                    Cancelar
+                    ABORTAR
                   </button>
-                  <motion.button 
+                  <button 
                     onClick={placeBet}
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98, y: 0 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                    className="flex-[2] py-4 bg-ko-accent text-white font-extrabold uppercase text-[10px] tracking-widest transition-all shadow-xl shadow-ko-accent/20 rounded"
+                    className="ko-btn-accent flex-[2] py-4 text-[10px]"
                   >
-                    Confirmar Apuesta
-                  </motion.button>
+                    CONFIRMAR_FIRMA
+                  </button>
                 </div>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <footer className="border-t border-ko-border h-16 ko-glass flex items-center px-6 justify-between">
-        <div className="flex gap-8 items-center text-[10px] text-zinc-500 uppercase font-bold tracking-widest">
-          <span className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full" /> DB NODE: CONNECTED
-          </span>
-          <span className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 bg-zinc-700 rounded-full" /> SYNCING LIVE ODDS
-          </span>
-        </div>
-        <div className="flex gap-4 text-zinc-600 text-[10px] font-bold uppercase tracking-tighter italic">
-          <p>© 2026 ALOFOKE K.O PREDICTIONS • VERIFIED V2.7.5 • JUEGA CON RESPONSABILIDAD</p>
-        </div>
-      </footer>
     </div>
   );
 }
