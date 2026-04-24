@@ -88,19 +88,6 @@ export default function App() {
     crypto: ''
   });
 
-  const fetchEvents = async () => {
-    const { data } = await supabase.from('events').select('*').order('created_at', { ascending: false });
-    if (data) {
-      setEvents(data);
-      if (data.length > 0 && !selectedEvent) setSelectedEvent(data[0]);
-    }
-  };
-
-  const fetchProfile = async (uid: string) => {
-    const { data } = await supabase.from('users').select('*').eq('id', uid).single();
-    if (data) setProfile(data);
-  };
-
   const [authEmail, setAuthEmail] = useState('');
   const [authPass, setAuthPass] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
