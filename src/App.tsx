@@ -261,12 +261,9 @@ export default function App() {
       <header className="sticky top-0 z-50 h-20 border-b border-ko-cyan/20 ko-glass px-8 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setActiveTab('mercado')}>
-            <div className="w-12 h-12 bg-ko-accent/10 border border-ko-accent flex items-center justify-center font-black text-2xl italic shadow-[inset_0_0_10px_rgba(255,42,42,0.5)] transition-transform group-hover:scale-110" style={{clipPath: 'polygon(25% 0%, 100% 0%, 75% 100%, 0% 100%)'}}>
-              A
-            </div>
+            <img src="/logo.png" alt="Alofoke K.O" className="w-16 h-16 object-contain transition-transform group-hover:scale-110" />
             <div className="flex flex-col">
-              <h1 className="text-2xl font-black tracking-tighter uppercase leading-none">ALOFOKE <span className="text-ko-accent">K.O</span></h1>
-              <span className="text-[8px] text-ko-cyan uppercase tracking-[0.3em] font-mono">Neural Betting Node</span>
+              <span className="text-[8px] text-ko-cyan uppercase tracking-[0.3em] font-mono mt-1">Neural Betting Node</span>
             </div>
           </div>
           
@@ -336,15 +333,12 @@ export default function App() {
               <div className="absolute bottom-0 left-0 w-40 h-40 bg-ko-accent/10 blur-[60px] rounded-full" />
               
               <div className="relative z-10 space-y-6">
-                <div className="w-24 h-24 bg-zinc-950 border-2 border-ko-cyan/30 flex items-center justify-center mx-auto" style={{clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)'}}>
-                  <Cpu className="w-10 h-10 text-ko-cyan animate-pulse" />
+                <div className="flex items-center justify-center mx-auto">
+                  <img src="/logo.png" alt="Alofoke K.O Logo" className="w-48 h-48 object-contain drop-shadow-[0_0_30px_rgba(255,42,42,0.6)] animate-pulse-glow" />
                 </div>
                 
                 <div className="space-y-2">
-                  <h2 className="text-5xl font-black italic uppercase tracking-tighter drop-shadow-lg text-white">
-                    SINDICATO <span className="text-ko-accent">K.O</span>
-                  </h2>
-                  <p className="text-ko-cyan text-[10px] font-mono uppercase tracking-[0.4em]">Protocolo de Apuestas Descentralizado v3.1</p>
+                  <p className="text-ko-cyan text-xs font-mono uppercase tracking-[0.4em]">Protocolo de Apuestas Descentralizado v3.1</p>
                 </div>
                 
                 <div className="pt-6 border-t border-white/5">
