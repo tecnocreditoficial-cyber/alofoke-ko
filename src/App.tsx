@@ -313,7 +313,7 @@ export default function App() {
   const tabs = [
     { id: 'panel', label: 'PANEL', icon: LayoutDashboard },
     { id: 'mercado', label: 'MERCADO', icon: Target },
-    { id: 'financiar', label: 'FINANCIAR', icon: Wallet },
+    { id: 'financiar', label: 'AGREGAR SALDO', icon: Wallet },
     { id: 'admin', label: 'ADMIN', icon: Settings, adminOnly: true },
   ];
 
@@ -364,9 +364,9 @@ export default function App() {
           {user && (
             <>
               <div className="flex flex-col items-end">
-                <span className="text-[9px] text-[#a1a1aa] uppercase font-bold tracking-widest">Balanza</span>
+                <span className="text-[9px] text-[#a1a1aa] uppercase font-bold tracking-widest">Balance</span>
                 <span className="text-green-500 font-bold text-sm">
-                  ${profile?.balance.toLocaleString()} <span className="text-[10px]">USD</span>
+                  RD${profile?.balance.toLocaleString()} <span className="text-[10px]">DOP</span>
                 </span>
               </div>
               <div className="h-8 w-px bg-white/10" />
@@ -578,10 +578,10 @@ export default function App() {
           <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8">
             <div className="text-center space-y-4">
               <h2 className="text-4xl font-black italic uppercase tracking-tighter">
-                <span className="text-white">FINANCIAR</span> <span className="text-[#ff2a2a] border-b-4 border-[#ff2a2a] pb-1">CAPITAL</span>
+                <span className="text-white">AGREGAR</span> <span className="text-[#ff2a2a] border-b-4 border-[#ff2a2a] pb-1">SALDO</span>
               </h2>
               <p className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest pt-2">INYECCIÓN DE LIQUIDEZ NODO KO-MARKET</p>
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* PayPal */}
               {paymentAccounts.paypal.active && (
                 <div className="ko-card p-10 flex flex-col items-center justify-center text-center space-y-6 group hover:border-[#333] transition-all cursor-pointer bg-[#111111] border-transparent" onClick={() => setDepositMethod('PAYPAL')}>
@@ -594,7 +594,7 @@ export default function App() {
                   </div>
                   <div className="w-full pt-6 border-t border-[#222] flex justify-center items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    <span className="text-sm font-black text-white">$50 <span className="text-[10px] text-[#777] uppercase">USD</span></span>
+                    <span className="text-sm font-black text-white">RD$50 <span className="text-[10px] text-[#777] uppercase">DOP</span></span>
                   </div>
                 </div>
               )}
@@ -611,7 +611,7 @@ export default function App() {
                   </div>
                   <div className="w-full pt-6 border-t border-[#222] flex justify-center items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    <span className="text-sm font-black text-white">$100 <span className="text-[10px] text-[#777] uppercase">USD</span></span>
+                    <span className="text-sm font-black text-white">RD$100 <span className="text-[10px] text-[#777] uppercase">DOP</span></span>
                   </div>
                 </div>
               )}
@@ -628,7 +628,7 @@ export default function App() {
                   </div>
                   <div className="w-full pt-6 border-t border-[#222] flex justify-center items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    <span className="text-sm font-black text-white">$200 <span className="text-[10px] text-[#777] uppercase">USD</span></span>
+                    <span className="text-sm font-black text-white">RD$200 <span className="text-[10px] text-[#777] uppercase">DOP</span></span>
                   </div>
                 </div>
               )}
@@ -640,7 +640,7 @@ export default function App() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">MONTO ENVIADO (USD)</label>
+                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">MONTO ENVIADO (DOP)</label>
                   <input 
                     type="number" 
                     value={depositAmount}
@@ -1013,11 +1013,11 @@ export default function App() {
             {/* Left Sidebar */}
             <aside className="space-y-6 hidden xl:block">
               <div className="ko-card p-6 border-transparent bg-[#111111]">
-                <div className="text-[10px] uppercase text-[#a1a1aa] mb-2 font-bold tracking-widest">MI BALANZA</div>
+                <div className="text-[10px] uppercase text-[#a1a1aa] mb-2 font-bold tracking-widest">MI BALANCE</div>
                 <div className="text-3xl font-black text-white tracking-tighter mb-1">
-                  ${(profile?.balance ?? 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  RD${(profile?.balance ?? 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                 </div>
-                <div className="text-[10px] font-bold text-[#a1a1aa]">USD DISPONIBLE</div>
+                <div className="text-[10px] font-bold text-[#a1a1aa]">DOP DISPONIBLE</div>
               </div>
 
               <div className="space-y-3">
