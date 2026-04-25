@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS public.events (
   date DATE,
   fighters JSONB,
   options JSONB,
+  image_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -99,6 +100,9 @@ INSERT INTO public.settings (id, data) VALUES ('payments', '{"paypal": "admin@al
 -- Activar Realtime en Eventos y Settings (Ya activados, comentar para evitar errores)
 -- alter publication supabase_realtime add table public.events;
 -- alter publication supabase_realtime add table public.settings;
+
+-- MIGRACIÓN: agregar columna image_url si no existe (ejecutar si la tabla events ya existe)
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS image_url TEXT;
 
 -- NOTA IMPORTANT: Función Trigger para crear el perfil cuando alguien se loguea con Google
 CREATE OR REPLACE FUNCTION public.handle_new_user()

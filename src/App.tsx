@@ -45,6 +45,7 @@ interface FightEvent {
   fighters: string[];
   options: MarketOption[];
   date: any;
+  image_url?: string;
   created_at?: string;
 }
 
@@ -80,6 +81,9 @@ export default function App() {
   const [newFighter1, setNewFighter1] = useState('');
   const [newFighter2, setNewFighter2] = useState('');
   const [newTitle, setNewTitle] = useState('');
+  const [newCategory, setNewCategory] = useState('BOXEO');
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [newDate, setNewDate] = useState('');
   
   // Payment account states
   const [paymentAccounts, setPaymentAccounts] = useState({
@@ -87,7 +91,10 @@ export default function App() {
     bank: '',
     crypto: ''
   });
-
+  
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPass, setAuthPass] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [pendingTransactions, setPendingTransactions] = useState<any[]>([]);
 
   const fetchEvents = async () => {
@@ -161,14 +168,30 @@ export default function App() {
     }
   }, [profile?.is_admin]);
 
-  const handleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (authMode === 'signup') {
+        const { error } = await supabase.auth.signUp({ 
+          email: authEmail, 
+          password: authPass,
+          options: {
+            data: { full_name: authEmail.split('@')[0] }
+          }
+        });
+        if (error) throw error;
+        alert('REGISTRO EXITOSO. YA PUEDES INICIAR SESIÓN.');
+        setAuthMode('login');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPass });
+        if (error) throw error;
       }
-    });
-    if (error) console.error(error);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -177,6 +200,10 @@ export default function App() {
 
   const placeBet = async () => {
     if (!user || !profile || !selectedEvent || !selectedOption) return;
+    if (betAmount <= 0) {
+      alert('INGRESA UN MONTO VÁLIDO.');
+      return;
+    }
     if (betAmount > profile.balance) {
       alert('SALDO INSUFICIENTE. RECARGA TUS FONDOS.');
       return;
@@ -197,13 +224,27 @@ export default function App() {
 
       if (betError) throw betError;
 
+      // Deduct from user balance
       const { error: balanceError } = await supabase.from('users').update({
         balance: profile.balance - betAmount
       }).eq('id', user.id);
 
       if (balanceError) throw balanceError;
 
+      // Update event pool & bets count
+      await supabase.from('events').update({
+        pool: (selectedEvent.pool || 0) + betAmount,
+        bets_count: (selectedEvent.bets_count || 0) + 1
+      }).eq('id', selectedEvent.id);
+
+      // Refresh data
+      await fetchProfile(user.id);
+      await fetchBets(user.id);
+      await fetchEvents();
+      
+      setSelectedOption(null);
       setBetModalOpen(false);
+      alert('¡APUESTA REGISTRADA CON ÉXITO!');
     } catch (err) {
       console.error(err);
       alert('ERROR EN LA TRANSACCIÓN.');
@@ -250,51 +291,52 @@ export default function App() {
   const [depositMethod, setDepositMethod] = useState<string>('PAYPAL');
 
   const tabs = [
-    { id: 'panel', label: 'SYS_PANEL', icon: LayoutDashboard },
-    { id: 'mercado', label: 'MERCADO_PRED', icon: Target },
-    { id: 'financiar', label: 'FONDOS', icon: Wallet },
-    { id: 'admin', label: 'ADMIN_NODE', icon: Settings, adminOnly: true },
+    { id: 'panel', label: 'PANEL', icon: LayoutDashboard },
+    { id: 'mercado', label: 'MERCADO', icon: Target },
+    { id: 'financiar', label: 'FINANCIAR', icon: Wallet },
+    { id: 'admin', label: 'ADMIN', icon: Settings, adminOnly: true },
   ];
 
   if (loading) return (
-    <div className="min-h-screen bg-[#030305] flex items-center justify-center">
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
       <div className="relative w-24 h-24 flex items-center justify-center">
-        <div className="absolute inset-0 border-y-2 border-ko-cyan rounded-full animate-spin"></div>
-        <div className="absolute inset-2 border-x-2 border-ko-accent rounded-full animate-[spin_2s_reverse_infinite]"></div>
-        <div className="text-ko-cyan font-black text-xs italic tracking-widest">SYS_INI</div>
+        <div className="absolute inset-0 border-y-2 border-[#ff2a2a] rounded-full animate-spin"></div>
+        <div className="absolute inset-2 border-x-2 border-white rounded-full animate-[spin_2s_reverse_infinite]"></div>
+        <div className="text-white font-black text-xs italic tracking-widest">ALOFOKE</div>
       </div>
     </div>
   );
 
   return (
     <div className="min-h-screen flex flex-col font-sans relative">
-      <div className="cyber-scanline" />
-
-      {/* Cyber Header */}
-      <header className="sticky top-0 z-50 h-20 border-b border-ko-cyan/20 ko-glass px-8 flex items-center justify-between">
+      {/* Header Alofoke K.O */}
+      <header className="sticky top-0 z-50 h-20 border-b border-white/5 bg-[#0a0a0a] px-8 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setActiveTab('mercado')}>
-            <img src="/logo.png" alt="Alofoke K.O" className="w-16 h-16 object-contain mix-blend-screen transition-transform group-hover:scale-110" />
-            <div className="flex flex-col">
-              <span className="text-[8px] text-ko-cyan uppercase tracking-[0.3em] font-mono mt-1">Neural Betting Node</span>
-            </div>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('mercado')}>
+            <div className="w-8 h-8 bg-[#ff2a2a] text-white flex items-center justify-center font-black text-xl rounded-sm">A</div>
+            <span className="text-2xl font-black italic tracking-tighter text-white">ALOFOKE <span className="text-[#ff2a2a]">K.O</span></span>
           </div>
           
-          <nav className="hidden md:flex gap-6 text-xs font-black uppercase tracking-widest text-zinc-500">
+          <nav className="hidden md:flex gap-6 text-xs font-bold uppercase tracking-wide text-[#a1a1aa]">
             {tabs.filter(t => !t.adminOnly || profile?.is_admin).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "transition-all flex items-center gap-2 h-20 border-b-2",
+                  "transition-all h-20 flex items-center border-b-2",
                   activeTab === tab.id 
-                    ? "text-ko-cyan border-ko-cyan" 
-                    : "border-transparent hover:text-zinc-300 hover:border-zinc-700"
+                    ? "text-white border-[#ff2a2a]" 
+                    : "border-transparent hover:text-white"
                 )}
               >
-                <tab.icon className="w-4 h-4" /> {tab.label}
+                {tab.label}
               </button>
             ))}
+            {user && (
+              <button onClick={() => setActiveTab('perfil')} className="transition-all h-20 flex items-center border-b-2 border-transparent hover:text-white">
+                PERFIL
+              </button>
+            )}
           </nav>
         </div>
 
@@ -302,24 +344,26 @@ export default function App() {
           {user && (
             <>
               <div className="flex flex-col items-end">
-                <span className="text-[8px] text-zinc-500 uppercase font-black tracking-widest">Saldo Activo</span>
-                <span className="mono text-ko-cyan font-black tracking-tight text-lg shadow-black drop-shadow-md">
-                  {profile?.balance.toLocaleString()} <span className="text-xs text-zinc-600">CRD</span>
+                <span className="text-[9px] text-[#a1a1aa] uppercase font-bold tracking-widest">Balanza</span>
+                <span className="text-green-500 font-bold text-sm">
+                  ${profile?.balance.toLocaleString()} <span className="text-[10px]">USD</span>
                 </span>
               </div>
-              <div className="h-8 w-px bg-ko-cyan/20" />
-              <button onClick={handleLogout} className="p-2 hover:bg-ko-accent/20 rounded transition-colors group border border-transparent hover:border-ko-accent/30">
-                <LogOut className="w-4 h-4 text-zinc-500 group-hover:text-ko-accent" />
-              </button>
-              <div className="flex items-center gap-3 bg-black/50 border border-white/5 p-1 pr-3" style={{clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)'}}>
-                <div className="w-8 h-8 bg-zinc-900 border border-ko-cyan/50 overflow-hidden" style={{clipPath: 'polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px)'}}>
+              <div className="h-8 w-px bg-white/10" />
+              
+              <div className="flex items-center gap-4">
+                <button onClick={handleLogout} className="text-[#a1a1aa] hover:text-white transition-colors">
+                  <LogOut className="w-4 h-4" />
+                </button>
+                <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10">
                   {user.user_metadata?.avatar_url ? (
                     <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <UserIcon className="w-full h-full text-zinc-500 p-1" />
+                    <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
+                      <UserIcon className="w-4 h-4 text-zinc-500" />
+                    </div>
                   )}
                 </div>
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{profile?.display_name?.split(' ')[0] || 'GUEST'}</span>
               </div>
             </>
           )}
@@ -330,33 +374,59 @@ export default function App() {
 
 
         {!user && (
-          <div className="h-[calc(100vh-200px)] flex flex-col items-center justify-center">
+          <div className="min-h-[80vh] flex items-center justify-center p-4">
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              className="max-w-xl w-full p-12 text-center ko-card space-y-8 relative overflow-hidden"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-md w-full ko-card p-10 space-y-8 bg-[#111111] border-transparent"
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-ko-cyan/10 blur-[60px] rounded-full" />
-              <div className="absolute bottom-0 left-0 w-40 h-40 bg-ko-accent/10 blur-[60px] rounded-full" />
               
-              <div className="relative z-10 space-y-6">
-                <div className="flex items-center justify-center mx-auto">
-                  <img src="/logo.png" alt="Alofoke K.O Logo" className="w-48 h-48 object-contain mix-blend-screen drop-shadow-[0_0_30px_rgba(255,42,42,0.6)] animate-pulse-glow" />
-                </div>
-                
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 bg-[#ff2a2a] text-white flex items-center justify-center font-black text-4xl rounded-sm mx-auto mb-4">A</div>
+                <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white">
+                  INICIA <span className="text-[#ff2a2a]">SESIÓN</span>
+                </h2>
+                <p className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest">Alofoke K.O Platform</p>
+              </div>
+
+              <form onSubmit={handleAuth} className="space-y-6">
                 <div className="space-y-2">
-                  <p className="text-ko-cyan text-xs font-mono uppercase tracking-[0.4em]">Protocolo de Apuestas Descentralizado v3.1</p>
+                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">CORREO ELECTRÓNICO</label>
+                  <input 
+                    type="email" 
+                    required
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-white font-bold focus:border-[#555] outline-none transition-all rounded-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">CONTRASEÑA</label>
+                  <input 
+                    type="password" 
+                    required
+                    value={authPass}
+                    onChange={(e) => setAuthPass(e.target.value)}
+                    className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-white font-bold focus:border-[#555] outline-none transition-all rounded-sm"
+                  />
                 </div>
                 
-                <div className="pt-6 border-t border-white/5">
-                  <button 
-                    onClick={handleLogin}
-                    className="ko-btn-accent w-full py-5 text-sm flex items-center justify-center gap-3"
-                  >
-                    <Target className="w-5 h-5" /> AUTENTICAR CON GOOGLE
-                  </button>
-                </div>
+                <button 
+                  type="submit"
+                  className="ko-btn-accent w-full py-4 text-[11px] flex items-center justify-center gap-3"
+                >
+                  <Shield className="w-4 h-4" /> 
+                  {authMode === 'login' ? 'INICIAR SESIÓN' : 'CREAR CUENTA'}
+                </button>
+              </form>
+
+              <div className="text-center">
+                <button 
+                  onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+                  className="text-[10px] font-bold text-[#ff2a2a] uppercase tracking-widest hover:text-white transition-colors"
+                >
+                  {authMode === 'login' ? '¿No tienes cuenta? REGISTRARSE' : '¿Ya tienes cuenta? LOGIN'}
+                </button>
               </div>
             </motion.div>
           </div>
@@ -365,39 +435,39 @@ export default function App() {
         {user && activeTab === 'panel' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="ko-card p-6 border-l-4 border-l-ko-cyan">
-                <div className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest mb-2">BALANCE_TOTAL</div>
-                <div className="text-3xl font-black text-white mono">{profile?.balance.toLocaleString()} <span className="text-xs text-zinc-600">CRD</span></div>
+              <div className="ko-card p-6 bg-[#111111] border-transparent border-l-4 border-l-green-500 rounded-sm">
+                <div className="text-[9px] text-[#777] uppercase font-bold tracking-widest mb-2">BALANCE_TOTAL</div>
+                <div className="text-3xl font-black text-white">${profile?.balance.toLocaleString()} <span className="text-xs text-[#a1a1aa]">USD</span></div>
               </div>
-              <div className="ko-card p-6 border-l-4 border-l-ko-accent">
-                <div className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest mb-2">OPERACIONES_ACTIVAS</div>
-                <div className="text-3xl font-black text-white mono">{userBets.filter(b => b.status === 'pending').length}</div>
+              <div className="ko-card p-6 bg-[#111111] border-transparent border-l-4 border-l-[#ff2a2a] rounded-sm">
+                <div className="text-[9px] text-[#777] uppercase font-bold tracking-widest mb-2">OPERACIONES_ACTIVAS</div>
+                <div className="text-3xl font-black text-white">{userBets.filter(b => b.status === 'pending').length}</div>
               </div>
-              <div className="ko-card p-6 border-l-4 border-l-ko-gold">
-                <div className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest mb-2">RETORNO_TOTAL</div>
-                <div className="text-3xl font-black text-white mono">0 <span className="text-xs text-zinc-600">CRD</span></div>
+              <div className="ko-card p-6 bg-[#111111] border-transparent border-l-4 border-l-white rounded-sm">
+                <div className="text-[9px] text-[#777] uppercase font-bold tracking-widest mb-2">RETORNO_TOTAL</div>
+                <div className="text-3xl font-black text-white">$0 <span className="text-xs text-[#a1a1aa]">USD</span></div>
               </div>
-              <div className="ko-card p-6 border-l-4 border-l-zinc-500">
-                <div className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest mb-2">NIVEL_ACCESO</div>
-                <div className="text-3xl font-black text-white mono">{profile?.is_admin ? 'ADMIN' : 'USER'}</div>
+              <div className="ko-card p-6 bg-[#111111] border-transparent border-l-4 border-l-[#555] rounded-sm">
+                <div className="text-[9px] text-[#777] uppercase font-bold tracking-widest mb-2">NIVEL_ACCESO</div>
+                <div className="text-3xl font-black text-white">{profile?.is_admin ? 'ADMIN' : 'USER'}</div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="ko-card overflow-hidden">
-                <div className="p-4 border-b border-white/5 bg-white/5 flex items-center gap-3">
-                  <History className="w-4 h-4 text-ko-cyan" />
-                  <h3 className="text-xs font-black uppercase tracking-widest">HISTORIAL_OPERATIVO</h3>
+              <div className="ko-card bg-[#111111] border-transparent overflow-hidden">
+                <div className="p-4 border-b border-[#222] flex items-center gap-3">
+                  <History className="w-4 h-4 text-[#ff2a2a]" />
+                  <h3 className="text-xs font-black uppercase tracking-widest text-white">HISTORIAL_OPERATIVO</h3>
                 </div>
-                <div className="divide-y divide-white/5 max-h-[400px] overflow-y-auto">
+                <div className="divide-y divide-[#222] max-h-[400px] overflow-y-auto">
                   {userBets.map(bet => (
-                    <div key={bet.id} className="p-4 flex justify-between items-center hover:bg-white/5 transition-colors">
+                    <div key={bet.id} className="p-4 flex justify-between items-center hover:bg-[#222] transition-colors">
                       <div className="space-y-1">
                         <div className="text-[11px] font-black uppercase text-white">{bet.selection}</div>
-                        <div className="text-[9px] font-mono text-zinc-500">{new Date(bet.created_at).toLocaleString()}</div>
+                        <div className="text-[9px] font-bold text-[#777]">{new Date(bet.created_at).toLocaleString()}</div>
                       </div>
                       <div className="text-right">
-                        <div className="mono text-sm font-bold text-ko-cyan">{bet.amount} CRD</div>
+                        <div className="text-sm font-black text-white">${bet.amount}</div>
                         <div className={`text-[8px] font-black uppercase ${bet.status === 'won' ? 'text-green-500' : 'text-zinc-500'}`}>{bet.status}</div>
                       </div>
                     </div>
@@ -422,220 +492,385 @@ export default function App() {
         )}
 
         {user && activeTab === 'financiar' && (
-          <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="text-center space-y-2">
-              <h2 className="text-4xl font-black italic uppercase text-white">INYECCIÓN DE <span className="text-ko-cyan">LIQUIDEZ</span></h2>
-              <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Selecciona un protocolo de transferencia para cargar tu balance</p>
+          <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8">
+            <div className="text-center space-y-4">
+              <h2 className="text-4xl font-black italic uppercase tracking-tighter">
+                <span className="text-white">FINANCIAR</span> <span className="text-[#ff2a2a] border-b-4 border-[#ff2a2a] pb-1">CAPITAL</span>
+              </h2>
+              <p className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest pt-2">INYECCIÓN DE LIQUIDEZ NODO KO-MARKET</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* PayPal */}
-              <div className="ko-card p-8 space-y-6 group hover:border-ko-cyan transition-all cursor-pointer">
-                <div className="w-12 h-12 bg-blue-500/10 rounded flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform">
-                  <CreditCard className="w-6 h-6 text-blue-500" />
+              <div className="ko-card p-10 flex flex-col items-center justify-center text-center space-y-6 group hover:border-[#333] transition-all cursor-pointer bg-[#111111] border-transparent" onClick={() => setDepositMethod('PAYPAL')}>
+                <div className="w-12 h-12 rounded bg-black flex items-center justify-center border border-[#222]">
+                  <CreditCard className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-black uppercase text-white">PAYPAL</h3>
-                  <p className="text-[10px] font-mono text-zinc-500 uppercase mt-1">Confirmación: 1-5 MIN</p>
+                  <h3 className="text-sm font-black uppercase text-white tracking-widest">PAYPAL INSTANT</h3>
+                  <p className="text-[9px] font-bold text-[#777] uppercase tracking-widest mt-2">VALIDACIÓN INMEDIATA</p>
                 </div>
-                <div className="p-4 bg-black border border-white/5 text-[10px] font-mono text-ko-cyan break-all">
-                  {paymentAccounts.paypal}
+                <div className="w-full pt-6 border-t border-[#222] flex justify-center items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                  <span className="text-sm font-black text-white">$50 <span className="text-[10px] text-[#777] uppercase">USD</span></span>
                 </div>
               </div>
 
               {/* Bank */}
-              <div className="ko-card p-8 space-y-6 group hover:border-ko-gold transition-all cursor-pointer">
-                <div className="w-12 h-12 bg-ko-gold/10 rounded flex items-center justify-center border border-ko-gold/20 group-hover:scale-110 transition-transform">
-                  <Shield className="w-6 h-6 text-ko-gold" />
+              <div className="ko-card p-10 flex flex-col items-center justify-center text-center space-y-6 group hover:border-[#333] transition-all cursor-pointer bg-[#111111] border-transparent" onClick={() => setDepositMethod('BANCO')}>
+                <div className="w-12 h-12 rounded bg-black flex items-center justify-center border border-[#222]">
+                  <Shield className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-black uppercase text-white">BANCO</h3>
-                  <p className="text-[10px] font-mono text-zinc-500 uppercase mt-1">Confirmación: 2-24 HRS</p>
+                  <h3 className="text-sm font-black uppercase text-white tracking-widest">BANK SEPA</h3>
+                  <p className="text-[9px] font-bold text-[#777] uppercase tracking-widest mt-2">1 2 HORAS RED</p>
                 </div>
-                <div className="p-4 bg-black border border-white/5 text-[10px] font-mono text-zinc-300">
-                  {paymentAccounts.bank}
+                <div className="w-full pt-6 border-t border-[#222] flex justify-center items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                  <span className="text-sm font-black text-white">$100 <span className="text-[10px] text-[#777] uppercase">USD</span></span>
                 </div>
               </div>
 
               {/* Crypto */}
-              <div className="ko-card p-8 space-y-6 group hover:border-ko-accent transition-all cursor-pointer">
-                <div className="w-12 h-12 bg-ko-accent/10 rounded flex items-center justify-center border border-ko-accent/20 group-hover:scale-110 transition-transform">
-                  <Bitcoin className="w-6 h-6 text-ko-accent" />
+              <div className="ko-card p-10 flex flex-col items-center justify-center text-center space-y-6 group hover:border-[#333] transition-all cursor-pointer bg-[#111111] border-transparent" onClick={() => setDepositMethod('CRYPTO')}>
+                <div className="w-12 h-12 rounded bg-black flex items-center justify-center border border-[#222]">
+                  <Bitcoin className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-black uppercase text-white">CRYPTO</h3>
-                  <p className="text-[10px] font-mono text-zinc-500 uppercase mt-1">Confirmación: 1 CONF</p>
+                  <h3 className="text-sm font-black uppercase text-white tracking-widest">BLOCKCHAIN L2</h3>
+                  <p className="text-[9px] font-bold text-[#777] uppercase tracking-widest mt-2">CONFIRMACIÓN MINERA</p>
                 </div>
-                <div className="p-4 bg-black border border-white/5 text-[10px] font-mono text-ko-accent break-all">
-                  {paymentAccounts.crypto}
+                <div className="w-full pt-6 border-t border-[#222] flex justify-center items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                  <span className="text-sm font-black text-white">$200 <span className="text-[10px] text-[#777] uppercase">USD</span></span>
                 </div>
               </div>
             </div>
 
-            <div className="ko-card p-10 bg-gradient-to-br from-zinc-950 to-black">
-              <h3 className="text-xs font-black uppercase tracking-widest mb-8 flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-ko-accent" /> NOTIFICAR DEPÓSITO
+            <div className="ko-card p-10 bg-[#111111] border-transparent mt-12">
+              <h3 className="text-[11px] font-bold uppercase tracking-widest mb-8 text-white">
+                NOTIFICAR TRANSFERENCIA
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <label className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">MONTO_A_CARGAR (CRD)</label>
+                <div className="space-y-3">
+                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">MONTO ENVIADO (USD)</label>
                   <input 
                     type="number" 
                     value={depositAmount}
                     onChange={(e) => setDepositAmount(Number(e.target.value))}
-                    placeholder="Ej: 500" 
-                    className="w-full bg-black border border-white/10 p-5 text-2xl font-black mono text-white focus:border-ko-cyan outline-none transition-all" 
+                    placeholder="Ej: 50" 
+                    className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-lg font-black text-white focus:border-[#555] outline-none transition-all rounded-sm" 
                   />
                 </div>
-                <div className="space-y-4">
-                  <label className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">MÉTODO_UTILIZADO</label>
+                <div className="space-y-3">
+                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">MÉTODO SELECCIONADO</label>
                   <select 
                     value={depositMethod}
                     onChange={(e) => setDepositMethod(e.target.value)}
-                    className="w-full bg-black border border-white/10 p-5 text-sm font-black uppercase text-white focus:border-ko-cyan outline-none transition-all appearance-none"
+                    className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-bold uppercase text-white focus:border-[#555] outline-none transition-all appearance-none rounded-sm"
                   >
-                    <option value="PAYPAL">PAYPAL</option>
-                    <option value="BANCO">BANCO</option>
-                    <option value="CRYPTO">CRYPTO</option>
+                    <option value="PAYPAL">PAYPAL INSTANT</option>
+                    <option value="BANCO">BANK SEPA</option>
+                    <option value="CRYPTO">BLOCKCHAIN L2</option>
                   </select>
                 </div>
               </div>
+              
+              <div className="mt-6 p-4 bg-[#0a0a0a] border border-[#222] rounded-sm">
+                <p className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest mb-2">INSTRUCCIONES DE PAGO ({depositMethod})</p>
+                <p className="text-xs font-mono text-white">
+                  {depositMethod === 'PAYPAL' && paymentAccounts.paypal}
+                  {depositMethod === 'BANCO' && paymentAccounts.bank}
+                  {depositMethod === 'CRYPTO' && paymentAccounts.crypto}
+                </p>
+              </div>
+
               <button 
                 onClick={() => handleDeposit(depositAmount, depositMethod)} 
-                className="ko-btn-accent w-full mt-10 py-5 text-xs font-black uppercase"
+                className="ko-btn-white w-full mt-8 py-4 text-[11px]"
               >
-                ENVIAR_COMPROBANTE_DE_PAGO
+                CONFIRMAR Y NOTIFICAR DEPÓSITO
               </button>
             </div>
           </div>
         )}
 
         {user && activeTab === 'admin' && profile?.is_admin && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex justify-between items-end">
-              <h2 className="text-4xl font-black italic uppercase text-ko-accent">NODO_CONTROL <span className="text-white">ADMIN</span></h2>
-              <button onClick={() => {
-                const title = prompt('Título del Evento:');
-                const category = prompt('Categoría (BOXEO, UFC, etc):');
-                if (title && category) {
-                  supabase.from('events').insert({
-                    title,
-                    category,
-                    options: [
-                      { id: '1', label: 'COMBATIENTE A', percentage: 50 },
-                      { id: '2', label: 'COMBATIENTE B', percentage: 50 },
-                      { id: '3', label: 'EMPATE', percentage: 10 }
-                    ]
-                  }).then(() => fetchEvents());
-                }
-              }} className="ko-btn-cyan px-6 py-3 text-[10px]">CREAR_NUEVO_EVENTO</button>
+          <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8">
+            <div className="space-y-2">
+              <h2 className="text-4xl font-black italic uppercase text-white">CENTRO DE <span className="text-[#ff2a2a]">COMANDO</span></h2>
+              <p className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest">GESTIÓN DE MERCADOS Y LIQUIDACIÓN</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 ko-card overflow-hidden">
-                <div className="p-4 border-b border-white/5 bg-zinc-900 flex items-center gap-3">
-                  <AlertTriangle className="w-4 h-4 text-ko-gold" />
-                  <h3 className="text-xs font-black uppercase tracking-widest">DEPÓSITOS_PENDIENTES</h3>
-                </div>
-                <div className="divide-y divide-white/5">
-                  {pendingTransactions.length > 0 ? pendingTransactions.map(tx => (
-                    <div key={tx.id} className="p-6 flex justify-between items-center bg-black/40">
-                      <div>
-                        <div className="text-sm font-black text-white">{tx.users?.display_name || tx.users?.email}</div>
-                        <div className="text-[10px] font-mono text-zinc-500 uppercase">{tx.method} // {new Date(tx.created_at).toLocaleString()}</div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Nueva Cartelera */}
+              <div className="ko-card p-10 bg-[#111111] border-transparent flex flex-col justify-between">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-[#ff2a2a] mb-8">NUEVA CARTELERA</h3>
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">PELEADOR 1</label>
+                        <input 
+                          type="text"
+                          value={newFighter1}
+                          onChange={(e) => setNewFighter1(e.target.value)}
+                          placeholder="Ej: Canelo Álvarez"
+                          className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-bold text-white focus:border-[#555] outline-none rounded-sm"
+                        />
                       </div>
-                      <div className="flex items-center gap-6">
-                        <div className="text-2xl font-black text-ko-cyan mono">{tx.amount} CRD</div>
-                        <div className="flex gap-2">
-                          <button onClick={() => handleApproveTransaction(tx.id, tx.user_id, tx.amount)} className="p-3 bg-green-500/10 border border-green-500/50 text-green-500 hover:bg-green-500 hover:text-white transition-all rounded">
-                            <CheckCircle2 className="w-5 h-5" />
-                          </button>
-                          <button onClick={() => supabase.from('transactions').update({ status: 'rejected' }).eq('id', tx.id).then(() => fetchPendingTransactions())} className="p-3 bg-ko-accent/10 border border-ko-accent/50 text-ko-accent hover:bg-ko-accent hover:text-white transition-all rounded">
-                            <XCircle className="w-5 h-5" />
-                          </button>
-                        </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">PELEADOR 2</label>
+                        <input 
+                          type="text"
+                          value={newFighter2}
+                          onChange={(e) => setNewFighter2(e.target.value)}
+                          placeholder="Ej: Gennady Golovkin"
+                          className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-bold text-white focus:border-[#555] outline-none rounded-sm"
+                        />
                       </div>
                     </div>
-                  )) : (
-                    <div className="p-12 text-center text-zinc-600 font-mono text-[10px] uppercase">SIN_TRANSACCIONES_PENDIENTES</div>
-                  )}
+
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">TÍTULO DEL EVENTO (OPCIONAL)</label>
+                      <input 
+                        type="text"
+                        value={newTitle}
+                        onChange={(e) => setNewTitle(e.target.value)}
+                        placeholder="Ej: Noche de Campeones • Santo Domingo"
+                        className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-bold text-white focus:border-[#555] outline-none rounded-sm"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">CATEGORÍA</label>
+                        <select
+                          value={newCategory}
+                          onChange={(e) => setNewCategory(e.target.value)}
+                          className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-bold text-white focus:border-[#555] outline-none rounded-sm appearance-none"
+                        >
+                          <option value="BOXEO">BOXEO</option>
+                          <option value="MMA">MMA / UFC</option>
+                          <option value="KICKBOXING">KICKBOXING</option>
+                          <option value="LUCHA LIBRE">LUCHA LIBRE</option>
+                          <option value="OTRO">OTRO</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">FECHA DEL EVENTO</label>
+                        <input 
+                          type="date"
+                          value={newDate}
+                          onChange={(e) => setNewDate(e.target.value)}
+                          className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-bold text-white focus:border-[#555] outline-none rounded-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">URL IMAGEN DEL CARTEL (OPCIONAL)</label>
+                      <input 
+                        type="url"
+                        value={newImageUrl}
+                        onChange={(e) => setNewImageUrl(e.target.value)}
+                        placeholder="https://i.imgur.com/tu-imagen.jpg"
+                        className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-mono text-white focus:border-[#555] outline-none rounded-sm"
+                      />
+                      {newImageUrl && (
+                        <img src={newImageUrl} alt="Preview" className="w-full h-24 object-cover rounded-sm mt-2 border border-[#222]" onError={(e) => {(e.target as HTMLImageElement).style.display='none'}} />
+                      )}
+                    </div>
+
+                    <div className="bg-[#0a0a0a] border border-[#222] rounded-sm p-4 space-y-3">
+                      <p className="text-[9px] font-bold text-[#777] uppercase tracking-widest">CUOTAS (% PROBABILIDAD)</p>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] text-white font-bold w-28 truncate">{newFighter1 || 'Peleador 1'} gana</span>
+                        <span className="text-[9px] text-[#777] font-bold">x{newFighter1 ? (100/40).toFixed(2) : '2.50'}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] text-white font-bold w-28">Empate</span>
+                        <span className="text-[9px] text-[#777] font-bold">x{(100/20).toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] text-white font-bold w-28 truncate">{newFighter2 || 'Peleador 2'} gana</span>
+                        <span className="text-[9px] text-[#777] font-bold">x{newFighter2 ? (100/40).toFixed(2) : '2.50'}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+                
+                <button 
+                  onClick={async () => {
+                    if (!newFighter1 || !newFighter2) return alert('Debes ingresar ambos peleadores');
+                    const titleStr = newTitle || `${newFighter1} VS ${newFighter2}`;
+                    const { error } = await supabase.from('events').insert({
+                      title: titleStr,
+                      category: newCategory,
+                      date: newDate || null,
+                      image_url: newImageUrl || null,
+                      status: 'upcoming',
+                      options: [
+                        { id: '1', label: `${newFighter1} GANA`, percentage: 40 },
+                        { id: '2', label: 'EMPATE', percentage: 20 },
+                        { id: '3', label: `${newFighter2} GANA`, percentage: 40 }
+                      ]
+                    });
+                    if (error) { alert('ERROR: ' + error.message); return; }
+                    await fetchEvents();
+                    setNewFighter1('');
+                    setNewFighter2('');
+                    setNewTitle('');
+                    setNewImageUrl('');
+                    setNewDate('');
+                    alert('✅ MERCADO LANZADO CON ÉXITO');
+                  }}
+                  className="ko-btn-accent w-full py-4 text-xs mt-8"
+                >
+                  LANZAR MERCADO EN VIVO
+                </button>
               </div>
 
-              <div className="ko-card p-6 space-y-6">
-                <h3 className="text-xs font-black uppercase tracking-widest border-b border-white/5 pb-4">RESUMEN_SISTEMA</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span className="text-[10px] text-zinc-500 uppercase">Total Usuarios</span>
-                    <span className="mono text-white">--</span>
+              {/* Configuración Nodo */}
+              <div className="ko-card p-10 bg-[#111111] border-transparent">
+                <h3 className="text-xs font-black uppercase tracking-widest text-[#a1a1aa] mb-8 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-[#ff2a2a]" /> CONFIGURACIÓN NODO
+                </h3>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">PAYPAL DE RECAUDACIÓN</label>
+                    <input 
+                      type="text"
+                      value={paymentAccounts.paypal}
+                      onChange={(e) => setPaymentAccounts({...paymentAccounts, paypal: e.target.value})}
+                      placeholder="email@paypal.com"
+                      className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-mono text-white focus:border-[#555] outline-none rounded-sm"
+                    />
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-[10px] text-zinc-500 uppercase">Apuestas Activas</span>
-                    <span className="mono text-white">{events.reduce((acc, e) => acc + (e.bets_count || 0), 0)}</span>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">CUENTA BANCARIA (INSTRUCCIONES)</label>
+                    <textarea 
+                      value={paymentAccounts.bank}
+                      onChange={(e) => setPaymentAccounts({...paymentAccounts, bank: e.target.value})}
+                      placeholder="Banco: XYZ, Cuenta: 000..."
+                      rows={2}
+                      className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-mono text-white focus:border-[#555] outline-none rounded-sm resize-none"
+                    />
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-[10px] text-zinc-500 uppercase">Volumen Total</span>
-                    <span className="mono text-ko-gold">{events.reduce((acc, e) => acc + (e.pool || 0), 0)} CRD</span>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">WALLET CRYPTO (BTC/USDT)</label>
+                    <input 
+                      type="text"
+                      value={paymentAccounts.crypto}
+                      onChange={(e) => setPaymentAccounts({...paymentAccounts, crypto: e.target.value})}
+                      placeholder="0x..."
+                      className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-mono text-white focus:border-[#555] outline-none rounded-sm"
+                    />
                   </div>
+                  <button 
+                    onClick={async () => {
+                      await supabase.from('settings').update({ data: paymentAccounts }).eq('id', 'payments');
+                      alert('CONFIGURACIÓN GUARDADA');
+                    }}
+                    className="ko-btn-white w-full py-4 text-xs"
+                  >
+                    GUARDAR CONFIGURACIÓN
+                  </button>
                 </div>
+              </div>
+            </div>
+
+            {/* Pendientes (Manteniendo funcionalidad original) */}
+            <div className="ko-card p-10 bg-[#111111] border-transparent mt-12">
+              <h3 className="text-xs font-black uppercase tracking-widest mb-8 text-white flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-[#ff2a2a]" /> LIQUIDACIONES PENDIENTES
+              </h3>
+              <div className="divide-y divide-[#222]">
+                {pendingTransactions.length > 0 ? pendingTransactions.map(tx => (
+                  <div key={tx.id} className="py-4 flex justify-between items-center">
+                    <div>
+                      <div className="text-sm font-black text-white">{tx.users?.display_name || tx.users?.email}</div>
+                      <div className="text-[10px] font-bold text-[#777] uppercase">{tx.method} // {new Date(tx.created_at).toLocaleString()}</div>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div className="text-xl font-black text-white">${tx.amount}</div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleApproveTransaction(tx.id, tx.user_id, tx.amount)} className="p-2 bg-green-500/10 border border-green-500/30 text-green-500 hover:bg-green-500 hover:text-white transition-all rounded-sm">
+                          <CheckCircle2 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => supabase.from('transactions').update({ status: 'rejected' }).eq('id', tx.id).then(() => fetchPendingTransactions())} className="p-2 bg-[#ff2a2a]/10 border border-[#ff2a2a]/30 text-[#ff2a2a] hover:bg-[#ff2a2a] hover:text-white transition-all rounded-sm">
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="py-12 text-center text-[#777] font-bold text-[10px] uppercase tracking-widest">SIN LIQUIDACIONES PENDIENTES</div>
+                )}
               </div>
             </div>
           </div>
         )}
 
         {user && activeTab === 'mercado' && (
-          <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr_340px] gap-8 animate-in fade-in zoom-in-95 duration-500">
+          <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr_320px] gap-6 animate-in fade-in zoom-in-95 duration-500">
             {/* Left Sidebar */}
             <aside className="space-y-6 hidden xl:block">
-              <div className="stat-box">
-                <div className="text-[9px] uppercase text-ko-cyan mb-2 font-black tracking-widest flex items-center gap-2">
-                  <Activity className="w-3 h-3" /> FONDOS_ACTIVOS
+              <div className="ko-card p-6 border-transparent bg-[#111111]">
+                <div className="text-[10px] uppercase text-[#a1a1aa] mb-2 font-bold tracking-widest">MI BALANZA</div>
+                <div className="text-3xl font-black text-white tracking-tighter mb-1">
+                  ${(profile?.balance ?? 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                 </div>
-                <div className="text-4xl font-black mono text-white tracking-tighter">
-                  {profile?.balance.toLocaleString()}
-                  <span className="text-xs text-zinc-600 ml-1">CRD</span>
-                </div>
-                <div className="h-1 w-full bg-zinc-900 mt-4 rounded-full overflow-hidden">
-                  <div className="h-full bg-ko-cyan w-1/3 shadow-[0_0_10px_#00f0ff]" />
-                </div>
+                <div className="text-[10px] font-bold text-[#a1a1aa]">USD DISPONIBLE</div>
               </div>
 
-              <div className="flex flex-col gap-4">
-                <h3 className="text-[10px] uppercase font-black text-zinc-500 tracking-widest border-b border-white/5 pb-2">
-                  LOG_TRANSACCIONES
-                </h3>
-                <div className="space-y-3">
-                  {userBets.length > 0 ? userBets.slice(0, 5).map((bet) => (
-                    <div key={bet.id} className="p-4 bg-zinc-950 border border-white/5 border-l-2 border-l-ko-accent text-[11px] font-bold transition-all hover:bg-zinc-900 hover:border-ko-cyan" style={{clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%)'}}>
-                      <div className="flex justify-between mb-2">
-                        <span className="truncate uppercase text-zinc-300 pr-2">{bet.selection}</span>
-                        <span className="text-ko-cyan mono">{bet.amount} CRD</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[9px] text-zinc-600 uppercase tracking-widest">
-                        <span>{new Date(bet.created_at).toLocaleDateString()}</span>
-                        <span className={cn(bet.status === 'pending' ? 'text-zinc-500' : 'text-ko-cyan')}>{bet.status}</span>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="p-8 text-center text-[9px] text-zinc-600 uppercase font-mono border border-zinc-800/50 bg-black/30">
-                      NO_RECORDS_FOUND
-                    </div>
-                  )}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[10px] uppercase font-bold tracking-widest text-[#a1a1aa]">MIS APUESTAS ACTIVAS</h3>
+                  <span className="bg-[#ff2a2a] text-white text-[9px] font-black px-2 py-0.5 rounded-full">
+                    {userBets.filter(b => b.status === 'pending').length}
+                  </span>
                 </div>
+                
+                {userBets.filter(b => b.status === 'pending').length > 0 ? (
+                  <div className="space-y-2">
+                    {userBets.filter(b => b.status === 'pending').slice(0, 5).map(bet => (
+                      <div key={bet.id} className="bg-[#111111] border border-[#222] rounded-sm p-3">
+                        <div className="text-[10px] font-black text-white uppercase truncate">{bet.selection}</div>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-[9px] text-[#777] font-bold">{new Date(bet.created_at).toLocaleDateString()}</span>
+                          <span className="text-[10px] font-black text-green-400">${bet.amount}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-[#111111] border border-[#1a1a1a] rounded-sm p-6 text-center">
+                    <span className="text-[10px] text-[#555] font-bold tracking-widest">SIN APUESTAS ACTIVAS</span>
+                  </div>
+                )}
+
+                {userBets.length > 0 && (
+                  <button onClick={() => setActiveTab('panel')} className="text-[10px] text-[#ff2a2a] hover:text-white transition-colors uppercase font-bold tracking-widest flex items-center gap-2">
+                    VER HISTORIAL COMPLETO <ChevronRight className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </aside>
 
             {/* Main Content */}
-            <div className="space-y-8">
-              <div className="flex items-center justify-between border-b border-ko-cyan/20 pb-4">
-                <h2 className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3">
-                  <Crosshair className="w-8 h-8 text-ko-accent" />
-                  CARTELERA <span className="text-ko-cyan">GLOBAL</span>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between pb-2">
+                <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
+                  CARTELERA: <span className="text-[#ff2a2a]">MAIN EVENT</span>
                 </h2>
                 <div className="flex gap-2">
-                  <span className="bg-ko-accent/10 px-4 py-1.5 rounded-sm text-[10px] font-black uppercase border border-ko-accent text-ko-accent live-glow mono tracking-widest">
-                    ON_AIR
-                  </span>
+                  <button className="bg-transparent border border-green-500 text-green-500 px-4 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-widest">
+                    VIVO
+                  </button>
+                  <button className="bg-[#1a1a1a] border border-transparent text-[#a1a1aa] px-4 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-widest">
+                    PRÓXIMOS
+                  </button>
                 </div>
               </div>
 
@@ -645,62 +880,79 @@ export default function App() {
                     key={selectedEvent.id}
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="ko-card"
+                    className="ko-card bg-[#111111] border-transparent overflow-hidden"
                   >
-                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-black/60 backdrop-blur-md">
-                      <div className="flex items-center gap-4">
-                        <div className="w-2 h-12 bg-gradient-to-b from-ko-accent to-ko-cyan rounded shadow-[0_0_15px_rgba(0,240,255,0.4)]" />
-                        <div>
-                          <h3 className="text-2xl font-black uppercase leading-none tracking-tight mb-2 text-white">{selectedEvent.title}</h3>
-                          <span className="text-[10px] font-mono text-ko-cyan uppercase tracking-widest bg-ko-cyan/10 px-2 py-1 rounded-sm border border-ko-cyan/20">
-                            {selectedEvent.category} // {selectedEvent.promoter}
+                    {/* Event Banner Image */}
+                    {selectedEvent.image_url && (
+                      <div className="relative h-48 overflow-hidden">
+                        <img 
+                          src={selectedEvent.image_url} 
+                          alt={selectedEvent.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-transparent to-transparent" />
+                        <div className="absolute top-3 left-3">
+                          <span className="bg-[#ff2a2a] text-white text-[9px] font-black px-3 py-1 uppercase tracking-widest">
+                            {selectedEvent.status === 'live' ? '🔴 EN VIVO' : selectedEvent.category}
                           </span>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">LIQUIDITY_POOL</div>
-                        <div className="mono text-2xl text-ko-gold font-black drop-shadow-[0_0_10px_rgba(255,215,0,0.3)]">
-                          {selectedEvent.pool.toLocaleString()} <span className="text-xs text-zinc-600">CRD</span>
+                    )}
+                    <div className="p-6 border-b border-[#222] flex justify-between items-start">
+                      <div className="flex items-start gap-4">
+                        <div className="w-1.5 h-12 bg-[#ff2a2a] flex-shrink-0" />
+                        <div>
+                          <h3 className="text-xl font-black uppercase leading-none tracking-tight mb-2 text-white">{selectedEvent.title}</h3>
+                          <span className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest">
+                            {selectedEvent.category} • ALOFOKE K.O
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-[9px] font-bold text-[#a1a1aa] uppercase tracking-widest mb-1">POOL TOTAL</div>
+                        <div className="text-lg text-white font-black">
+                          ${(selectedEvent.pool || 0).toLocaleString()}
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-ko-accent/5 via-transparent to-transparent">
+                    <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                       {selectedEvent.options?.map((option) => (
                         <div key={option.id} className="group relative">
-                          <div className="flex justify-between items-center mb-3">
-                            <span className="text-[11px] font-black text-zinc-300 uppercase truncate pr-2">{option.label}</span>
-                            <span className="mono text-ko-cyan text-[10px] font-bold bg-ko-cyan/10 px-2 py-0.5 border border-ko-cyan/20">{option.percentage.toFixed(0)}%</span>
+                          <div className="flex justify-between items-center mb-2 px-1">
+                            <span className="text-[10px] font-bold text-[#a1a1aa] uppercase truncate">{option.label}</span>
+                            <span className="text-[#a1a1aa] text-[10px] font-bold">{option.percentage.toFixed(0)}%</span>
                           </div>
                           <button 
                             onClick={() => {
                               setSelectedOption(option);
                               setBetAmount(10);
-                              setBetModalOpen(true);
                             }}
-                            className="ko-btn-outline w-full p-6 flex flex-col items-center gap-2 group-hover:-translate-y-1 group-hover:border-ko-cyan transition-all duration-300 relative overflow-hidden"
-                            style={{clipPath: 'polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px)'}}
+                            className={cn(
+                              "w-full p-6 flex flex-col items-center justify-center gap-1 transition-all rounded-sm",
+                              selectedOption?.id === option.id ? "bg-[#ff2a2a]/10 border border-[#ff2a2a]" : "bg-[#0a0a0a] border border-transparent hover:border-[#333]"
+                            )}
                           >
-                            <div className="absolute top-0 right-0 w-8 h-8 bg-gradient-to-bl from-ko-cyan/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <span className="mono font-black text-3xl text-white italic group-hover:text-ko-cyan transition-colors">x{(100/option.percentage).toFixed(2)}</span>
-                            <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">MULTIPLICADOR_NETO</span>
+                            <span className="font-black text-xl text-white italic">x{(100/option.percentage).toFixed(2)}</span>
+                            <span className="text-[9px] font-bold text-[#777] uppercase tracking-widest">CUOTA FIJA</span>
                           </button>
                         </div>
                       ))}
                     </div>
 
-                    <div className="px-8 py-4 bg-zinc-950 border-t border-ko-cyan/20 flex flex-wrap gap-12 items-center">
+                    <div className="px-6 py-4 border-t border-[#222] flex flex-wrap gap-8 items-center bg-[#0a0a0a]">
                       <div className="flex flex-col gap-1">
-                        <span className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">SYS_TIMEOUT</span>
-                        <span className="mono text-xs font-bold text-zinc-300">21:00 GMT-5</span>
+                        <span className="text-[9px] font-bold text-[#777] uppercase tracking-widest">CIERRE</span>
+                        <span className="text-[10px] font-bold text-[#a1a1aa]">21:00 GMT-5</span>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <span className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">VOLUMEN_OP</span>
-                        <span className="mono text-xs font-bold text-ko-cyan">{selectedEvent.bets_count}</span>
+                        <span className="text-[9px] font-bold text-[#777] uppercase tracking-widest">APUESTAS</span>
+                        <span className="text-[10px] font-bold text-[#a1a1aa]">{selectedEvent.bets_count}</span>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <span className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">NETWORK_FEE</span>
-                        <span className="mono text-xs font-bold text-ko-accent">{selectedEvent.fee}%</span>
+                        <span className="text-[9px] font-bold text-[#777] uppercase tracking-widest">FEE</span>
+                        <span className="text-[10px] font-bold text-[#a1a1aa]">{selectedEvent.fee}%</span>
                       </div>
                     </div>
                   </motion.div>
@@ -709,14 +961,14 @@ export default function App() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                 {events.filter(e => e.id !== (selectedEvent?.id || '')).map(event => (
-                  <div key={event.id} onClick={() => setSelectedEvent(event)} className="p-5 bg-zinc-950 border border-white/5 flex justify-between items-center cursor-pointer group hover:border-ko-cyan transition-all" style={{clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)'}}>
+                  <div key={event.id} onClick={() => setSelectedEvent(event)} className="p-5 bg-[#111] border border-transparent rounded-sm flex justify-between items-center cursor-pointer group hover:border-[#333] transition-all">
                     <div className="space-y-2">
-                      <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                        <div className="w-2 h-2 bg-zinc-800 group-hover:bg-ko-cyan transition-colors" /> {event.category}
+                      <span className="text-[9px] font-bold text-[#777] uppercase tracking-widest">
+                        {event.category}
                       </span>
-                      <h4 className="text-sm font-black uppercase tracking-tight text-zinc-400 group-hover:text-white transition-colors">{event.title}</h4>
+                      <h4 className="text-xs font-black uppercase tracking-tight text-[#a1a1aa] group-hover:text-white transition-colors">{event.title}</h4>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-zinc-700 group-hover:text-ko-cyan transition-colors" />
+                    <ChevronRight className="w-4 h-4 text-[#777] group-hover:text-white transition-colors" />
                   </div>
                 ))}
               </div>
@@ -724,60 +976,84 @@ export default function App() {
 
             {/* Right Sidebar - Bet Slip */}
             <aside className="space-y-6">
-              <div className="ko-card bg-black/60 backdrop-blur-xl sticky top-28 flex flex-col h-auto min-h-[500px]">
-                <div className="p-6 border-b border-ko-cyan/20">
-                  <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-ko-cyan">
-                    <Crosshair className="w-4 h-4" /> TERMINAL_OP
+              <div className="ko-card bg-[#111111] border-transparent flex flex-col h-auto">
+                <div className="p-4 border-b border-[#222] flex justify-between items-center">
+                  <h3 className="text-[11px] font-bold uppercase tracking-widest flex items-center gap-2 text-white">
+                    <span className="text-[#ff2a2a]">+</span> CUPÓN DE APUESTA
                   </h3>
+                  <button className="w-5 h-5 rounded-full bg-[#222] flex items-center justify-center text-[#777] text-xs hover:text-white">x</button>
                 </div>
                 
-                <div className="p-6 flex-1">
-                  {selectedEvent ? (
+                <div className="p-5 flex-1">
+                  {selectedEvent && selectedOption ? (
                     <div className="space-y-6">
-                      <div className="p-5 bg-zinc-950 border border-ko-accent/30 relative group" style={{clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)'}}>
-                        <div className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest mb-2">TARGET_LOCKED</div>
-                        <div className="font-black text-sm mb-4 uppercase tracking-tight text-white">{selectedEvent.title}</div>
-                        <div className="flex justify-between items-center pt-3 border-t border-white/5">
-                          <div className="mono text-xs text-zinc-400">STATUS: <span className="text-ko-accent font-black">AWAITING_INPUT</span></div>
+                      <div>
+                        <div className="text-[9px] text-[#a1a1aa] uppercase font-bold tracking-widest mb-2">MERCADO SELECCIONADO</div>
+                        <div className="font-black text-sm uppercase tracking-tight text-white mb-2">{selectedEvent.title} - {selectedOption.label}</div>
+                        <div className="text-xs font-bold text-[#ff2a2a]">
+                          Cuota: {(100/selectedOption.percentage).toFixed(2)}
                         </div>
                       </div>
 
-                      <div className="space-y-4 text-xs font-bold p-2">
-                        <div className="flex justify-between text-zinc-500">
-                          <span className="uppercase text-[9px] tracking-widest">NETWORK_FEE ({selectedEvent.fee}%)</span>
-                          <span className="mono">AUTO</span>
-                        </div>
-                        <div className="flex justify-between font-black text-sm border-t border-ko-cyan/20 pt-4 mt-4 text-white">
-                          <span className="uppercase tracking-widest text-[10px] text-ko-cyan">RETORNO_CALC</span>
-                          <span className="text-ko-gold mono text-lg drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]">--- CRD</span>
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <input 
+                            type="number"
+                            value={betAmount || ''}
+                            onChange={(e) => setBetAmount(Number(e.target.value))}
+                            className="w-full bg-[#0a0a0a] border border-[#222] p-3 pl-4 rounded-sm text-sm font-bold text-white focus:border-[#555] outline-none transition-all"
+                            placeholder="Monto $"
+                          />
+                          <span className="absolute right-4 top-3.5 text-[#555] text-sm font-bold">$</span>
                         </div>
                       </div>
+
+                      <div className="space-y-2 text-[10px] font-bold border-b border-[#222] pb-4">
+                        <div className="flex justify-between text-[#777]">
+                          <span>Monto de apuesta</span>
+                          <span>${betAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-[#777]">
+                          <span>Comisión de red ({selectedEvent.fee}%)</span>
+                          <span>${(betAmount * (selectedEvent.fee/100)).toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center pt-2">
+                        <span className="uppercase font-black text-[11px] text-white tracking-widest">RETORNO POTENCIAL</span>
+                        <span className="text-green-500 font-black text-sm">${(betAmount * (100/selectedOption.percentage) - (betAmount * (selectedEvent.fee/100))).toFixed(2)}</span>
+                      </div>
+
+                      <div className="pt-2">
+                        <div className="text-[9px] text-[#a1a1aa] uppercase font-bold tracking-widest mb-3">MÉTODO DE VALIDACIÓN</div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button className="bg-[#222] text-[#a1a1aa] p-2 rounded-sm text-[9px] font-bold hover:bg-[#333] hover:text-white flex items-center justify-center gap-1">
+                            <CreditCard className="w-3 h-3" /> PayPal
+                          </button>
+                          <button className="bg-[#222] text-[#a1a1aa] p-2 rounded-sm text-[9px] font-bold hover:bg-[#333] hover:text-white flex items-center justify-center gap-1">
+                            <Bitcoin className="w-3 h-3" /> Crypto
+                          </button>
+                          <button className="bg-[#222] text-[#a1a1aa] p-2 rounded-sm text-[9px] font-bold hover:bg-[#333] hover:text-white flex items-center justify-center gap-1">
+                            <Wallet className="w-3 h-3" /> Banco
+                          </button>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={() => {
+                          if (!betAmount || betAmount <= 0) return alert('INGRESA UN MONTO VÁLIDO');
+                          setBetModalOpen(true);
+                        }}
+                        className="ko-btn-accent w-full py-4 mt-2 text-[11px]"
+                      >
+                        CONFIRMAR OPERACIÓN
+                      </button>
                     </div>
                   ) : (
-                    <div className="h-full flex items-center justify-center text-center p-8">
-                      <div className="space-y-4">
-                        <div className="w-16 h-16 border border-zinc-800 rounded-full flex items-center justify-center mx-auto">
-                          <Target className="w-6 h-6 text-zinc-700" />
-                        </div>
-                        <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">AWAITING_SELECTION...</p>
-                      </div>
+                    <div className="h-full min-h-[200px] flex items-center justify-center text-center">
+                      <p className="text-[10px] font-bold text-[#555] uppercase tracking-widest">SELECCIONA UNA CUOTA</p>
                     </div>
                   )}
-                </div>
-
-                <div className="p-6 bg-zinc-950 border-t border-white/5">
-                  <h4 className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest mb-4">INYECCIÓN_RAPIDA</h4>
-                  <div className="flex gap-2 mb-6">
-                    <div className="payment-pill flex-1 justify-center" onClick={() => handleDeposit(100)}>
-                      100 CRD
-                    </div>
-                    <div className="payment-pill flex-1 justify-center border-ko-cyan/30 text-ko-cyan" onClick={() => handleDeposit(500)}>
-                      500 CRD
-                    </div>
-                  </div>
-                  <button className="ko-btn-accent w-full py-4 text-[10px] opacity-50 cursor-not-allowed">
-                    EJECUTAR_OP
-                  </button>
                 </div>
               </div>
             </aside>
@@ -786,70 +1062,84 @@ export default function App() {
 
       </main>
 
-      {/* Betting Modal */}
+      {/* Betting Confirmation Modal */}
       <AnimatePresence>
-        {betModalOpen && selectedOption && (
+        {betModalOpen && selectedOption && selectedEvent && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 ko-glass"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setBetModalOpen(false)}
           >
             <motion.div 
               initial={{ scale: 0.95, y: 10 }}
               animate={{ scale: 1, y: 0 }}
-              className="max-w-md w-full bg-zinc-950 border border-ko-cyan/50 shadow-[0_0_40px_rgba(0,240,255,0.15)] relative overflow-hidden"
-              style={{clipPath: 'polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px)'}}
+              exit={{ scale: 0.95, y: 10 }}
+              className="max-w-md w-full bg-[#111111] border border-[#333] rounded-sm relative overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
             >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-ko-cyan via-ko-accent to-ko-cyan" />
-              <div className="p-8 space-y-8 relative z-10">
-                <div className="flex justify-between items-start border-b border-white/10 pb-4">
+              <div className="h-1 w-full bg-[#ff2a2a]" />
+              <div className="p-8 space-y-6">
+                <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="text-2xl font-black italic uppercase text-white">CONFIRMAR <span className="text-ko-cyan">OP</span></h3>
-                    <p className="text-[10px] text-zinc-500 font-mono tracking-widest mt-1">SINDICATO K.O // TX_NODE</p>
+                    <h3 className="text-xl font-black italic uppercase text-white">CONFIRMAR <span className="text-[#ff2a2a]">APUESTA</span></h3>
+                    <p className="text-[10px] text-[#777] font-bold mt-1 uppercase tracking-widest">Alofoke K.O Platform</p>
                   </div>
-                  <div className="w-8 h-8 border border-ko-accent text-ko-accent flex items-center justify-center font-bold text-xs">!</div>
+                  <button onClick={() => setBetModalOpen(false)} className="w-8 h-8 bg-[#222] rounded-sm flex items-center justify-center text-[#777] hover:text-white transition-colors">✕</button>
                 </div>
-                
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest flex justify-between">
-                      <span>MONTO_CRD</span>
-                      <span className="text-ko-cyan">FONDOS: {profile?.balance.toLocaleString()}</span>
-                    </label>
-                    <input 
-                      type="number"
-                      value={betAmount}
-                      onChange={(e) => setBetAmount(Number(e.target.value))}
-                      className="w-full bg-black border border-ko-cyan/30 p-5 text-3xl font-black mono text-ko-cyan focus:border-ko-cyan focus:shadow-[0_0_15px_rgba(0,240,255,0.2)] outline-none transition-all"
-                      style={{clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)'}}
-                    />
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-black p-5 border border-white/5" style={{clipPath: 'polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px)'}}>
-                      <span className="text-[9px] font-mono text-zinc-500 uppercase block mb-2">MULTIPLICADOR</span>
-                      <span className="mono text-2xl font-black italic text-white">x{(100/selectedOption.percentage).toFixed(2)}</span>
-                    </div>
-                    <div className="bg-ko-accent/10 p-5 border border-ko-accent/30" style={{clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)'}}>
-                      <span className="text-[9px] font-mono text-ko-accent uppercase block mb-2">PROFIT_EST</span>
-                      <span className="mono text-2xl font-black text-white italic drop-shadow-[0_0_5px_rgba(255,42,42,0.8)]">{(betAmount * (100/selectedOption.percentage)).toFixed(2)}</span>
-                    </div>
+                <div className="bg-[#0a0a0a] border border-[#222] rounded-sm p-4 space-y-2">
+                  <div className="text-[9px] font-bold text-[#777] uppercase tracking-widest">MERCADO</div>
+                  <div className="text-sm font-black text-white uppercase">{selectedEvent.title}</div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-[#ff2a2a] uppercase">{selectedOption.label}</span>
+                    <span className="text-sm font-black text-white">x{(100/selectedOption.percentage).toFixed(2)}</span>
                   </div>
                 </div>
 
-                <div className="flex gap-4 pt-4">
+                <div className="space-y-3">
+                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest flex justify-between">
+                    <span>MONTO A APOSTAR</span>
+                    <span className="text-green-400">BALANCE: ${(profile?.balance ?? 0).toFixed(2)}</span>
+                  </label>
+                  <input 
+                    type="number"
+                    value={betAmount}
+                    onChange={(e) => setBetAmount(Number(e.target.value))}
+                    className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-2xl font-black text-white focus:border-[#555] outline-none transition-all rounded-sm"
+                    min={1}
+                    max={profile?.balance ?? 0}
+                  />
+                </div>
+
+                <div className="space-y-2 text-[11px] font-bold border-t border-b border-[#222] py-4">
+                  <div className="flex justify-between text-[#a1a1aa]">
+                    <span>Monto apostado</span>
+                    <span>${betAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-[#a1a1aa]">
+                    <span>Comisión ({selectedEvent.fee ?? 5}%)</span>
+                    <span>-${(betAmount * ((selectedEvent.fee ?? 5)/100)).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-white font-black text-sm pt-1">
+                    <span>RETORNO POTENCIAL</span>
+                    <span className="text-green-400">${(betAmount * (100/selectedOption.percentage) - betAmount * ((selectedEvent.fee ?? 5)/100)).toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
                   <button 
                     onClick={() => setBetModalOpen(false)}
-                    className="ko-btn-cyan flex-1 py-4 text-[10px]"
+                    className="flex-1 py-3 bg-[#222] text-[#a1a1aa] hover:text-white text-xs font-bold uppercase rounded-sm transition-colors"
                   >
-                    ABORTAR
+                    CANCELAR
                   </button>
                   <button 
                     onClick={placeBet}
-                    className="ko-btn-accent flex-[2] py-4 text-[10px]"
+                    className="ko-btn-accent flex-[2] py-3 text-xs"
                   >
-                    CONFIRMAR_FIRMA
+                    CONFIRMAR APUESTA
                   </button>
                 </div>
               </div>
