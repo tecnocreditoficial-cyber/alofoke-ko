@@ -328,6 +328,12 @@ export default function App() {
                 PERFIL
               </button>
             )}
+            {profile?.is_admin && (
+              <Link to="/admin" className="transition-all h-20 flex items-center border-b-2 border-transparent text-[#ff2a2a] hover:text-white ml-4 bg-[#ff2a2a]/10 px-4">
+                <Settings className="w-4 h-4 mr-2" />
+                PANEL ADMIN
+              </Link>
+            )}
           </nav>
         </div>
 

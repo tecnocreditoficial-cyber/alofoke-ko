@@ -134,8 +134,11 @@ export default function AdminDashboard() {
           <span className="text-lg font-black tracking-widest">ALOFOKE <span className="text-[#ff2a2a]">ADMIN</span></span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-[10px] font-bold text-zinc-500 uppercase">Sesión Segura</span>
-          <button onClick={async () => { await supabase.auth.signOut(); navigate('/app'); }} className="text-[#a1a1aa] hover:text-white transition-colors">
+          <Link to="/app" className="text-[10px] font-bold text-[#ff2a2a] hover:text-white transition-colors uppercase border border-[#ff2a2a]/30 bg-[#ff2a2a]/10 px-3 py-1.5 rounded-sm">
+            VISTA USUARIO
+          </Link>
+          <span className="text-[10px] font-bold text-zinc-500 uppercase ml-2">Sesión Segura</span>
+          <button onClick={async () => { await supabase.auth.signOut(); navigate('/app'); }} className="text-[#a1a1aa] hover:text-white transition-colors" title="Cerrar sesión">
             <LogOut className="w-4 h-4" />
           </button>
         </div>
