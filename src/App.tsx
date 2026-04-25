@@ -21,6 +21,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Link } from 'react-router-dom';
 import { cn } from './lib/utils';
 import { supabase } from './lib/supabase';
 
@@ -94,6 +95,7 @@ export default function App() {
   
   const [authEmail, setAuthEmail] = useState('');
   const [authPass, setAuthPass] = useState('');
+  const [authName, setAuthName] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [pendingTransactions, setPendingTransactions] = useState<any[]>([]);
 
@@ -186,7 +188,7 @@ export default function App() {
           email: authEmail, 
           password: authPass,
           options: {
-            data: { full_name: authEmail.split('@')[0] }
+            data: { full_name: authName || authEmail.split('@')[0] }
           }
         });
         if (error) throw error;
@@ -321,10 +323,10 @@ export default function App() {
       {/* Header Alofoke K.O */}
       <header className="sticky top-0 z-50 h-20 border-b border-white/5 bg-[#0a0a0a] px-8 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('mercado')}>
-            <div className="w-8 h-8 bg-[#ff2a2a] text-white flex items-center justify-center font-black text-xl rounded-sm">A</div>
-            <span className="text-2xl font-black italic tracking-tighter text-white">ALOFOKE <span className="text-[#ff2a2a]">K.O</span></span>
-          </div>
+          <Link to="/" className="flex items-center gap-3">
+            <img src="/logo.png" alt="Alofoke K.O" className="h-8 object-contain" />
+            <span className="text-2xl font-black italic tracking-tighter text-white hidden sm:block">ALOFOKE <span className="text-[#ff2a2a]">K.O</span></span>
+          </Link>
           
           <nav className="hidden md:flex gap-6 text-xs font-bold uppercase tracking-wide text-[#a1a1aa]">
             {tabs.filter(t => !t.adminOnly || profile?.is_admin).map((tab) => (
@@ -391,7 +393,7 @@ export default function App() {
             >
               
               <div className="text-center space-y-4">
-                <div className="w-16 h-16 bg-[#ff2a2a] text-white flex items-center justify-center font-black text-4xl rounded-sm mx-auto mb-4">A</div>
+                <img src="/logo.png" alt="Alofoke K.O Logo" className="h-16 mx-auto mb-6 object-contain drop-shadow-[0_0_15px_rgba(255,42,42,0.3)]" />
                 <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white">
                   INICIA <span className="text-[#ff2a2a]">SESIÓN</span>
                 </h2>
@@ -399,6 +401,19 @@ export default function App() {
               </div>
 
               <form onSubmit={handleAuth} className="space-y-6">
+                {authMode === 'signup' && (
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">NOMBRE COMPLETO</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={authName}
+                      onChange={(e) => setAuthName(e.target.value)}
+                      placeholder="Ej: Juan Pérez"
+                      className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-white font-bold focus:border-[#ff2a2a]/50 outline-none transition-all rounded-sm"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">CORREO ELECTRÓNICO</label>
                   <input 
@@ -406,7 +421,8 @@ export default function App() {
                     required
                     value={authEmail}
                     onChange={(e) => setAuthEmail(e.target.value)}
-                    className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-white font-bold focus:border-[#555] outline-none transition-all rounded-sm"
+                    placeholder="ejemplo@correo.com"
+                    className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-white font-bold focus:border-[#ff2a2a]/50 outline-none transition-all rounded-sm"
                   />
                 </div>
                 <div className="space-y-2">
@@ -416,7 +432,8 @@ export default function App() {
                     required
                     value={authPass}
                     onChange={(e) => setAuthPass(e.target.value)}
-                    className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-white font-bold focus:border-[#555] outline-none transition-all rounded-sm"
+                    placeholder="••••••••"
+                    className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-white font-bold focus:border-[#ff2a2a]/50 outline-none transition-all rounded-sm"
                   />
                 </div>
                 
