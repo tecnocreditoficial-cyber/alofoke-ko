@@ -78,14 +78,7 @@ export default function App() {
   const [betAmount, setBetAmount] = useState(10);
   const [selectedOption, setSelectedOption] = useState<MarketOption | null>(null);
 
-  // Admin states
-  const [newFighter1, setNewFighter1] = useState('');
-  const [newFighter2, setNewFighter2] = useState('');
-  const [newTitle, setNewTitle] = useState('');
-  const [newCategory, setNewCategory] = useState('BOXEO');
-  const [newImageUrl, setNewImageUrl] = useState('');
-  const [newDate, setNewDate] = useState('');
-  
+
   // Payment account states
   const [paymentAccounts, setPaymentAccounts] = useState({
     paypal: { value: '', active: true },
@@ -100,8 +93,6 @@ export default function App() {
   const [authCountry, setAuthCountry] = useState('');
   const [authUsername, setAuthUsername] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>(window.location.hash === '#signup' ? 'signup' : 'login');
-  const [pendingTransactions, setPendingTransactions] = useState<any[]>([]);
-  const [selectedWinners, setSelectedWinners] = useState<Record<string, string>>({});
 
   const fetchEvents = async () => {
     const { data } = await supabase.from('events').select('*').order('created_at', { ascending: false });
@@ -119,14 +110,6 @@ export default function App() {
   const fetchBets = async (uid: string) => {
     const { data } = await supabase.from('bets').select('*').eq('user_id', uid).order('created_at', { ascending: false });
     if (data) setUserBets(data);
-  };
-
-  const fetchPendingTransactions = async () => {
-    const { data } = await supabase
-      .from('transactions')
-      .select('*, users(email, display_name)')
-      .eq('status', 'pending');
-    if (data) setPendingTransactions(data);
   };
 
   const loadSettings = async () => {
@@ -191,12 +174,6 @@ export default function App() {
       supabase.removeChannel(profileSub);
     };
   }, [user?.id]);
-
-  useEffect(() => {
-    if (profile?.is_admin) {
-      fetchPendingTransactions();
-    }
-  }, [profile?.is_admin]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,28 +274,8 @@ export default function App() {
         status: 'pending'
       });
       alert('NOTIFICACIÓN ENVIADA. ESPERANDO APROBACIÓN.');
-      if (profile?.is_admin) fetchPendingTransactions();
     } catch (err) {
       console.error(err);
-    }
-  };
-
-  const handleApproveTransaction = async (txId: string, userId: string, amount: number) => {
-    try {
-      const { data: userProfile } = await supabase.from('users').select('balance').eq('id', userId).single();
-      const newBalance = (userProfile?.balance || 0) + amount;
-      
-      const { error: upError } = await supabase.from('users').update({ balance: newBalance }).eq('id', userId);
-      if (upError) throw upError;
-
-      const { error: txError } = await supabase.from('transactions').update({ status: 'approved' }).eq('id', txId);
-      if (txError) throw txError;
-      
-      fetchPendingTransactions();
-      alert('TRANSACCIÓN APROBADA.');
-    } catch (err) {
-      console.error(err);
-      alert('ERROR AL APROBAR.');
     }
   };
 
@@ -329,7 +286,6 @@ export default function App() {
     { id: 'panel', label: 'PANEL', icon: LayoutDashboard },
     { id: 'mercado', label: 'MERCADO', icon: Target },
     { id: 'financiar', label: 'AGREGAR SALDO', icon: Wallet },
-    { id: 'admin', label: 'ADMIN', icon: Settings, adminOnly: true },
   ];
 
   if (loading) return (
@@ -696,333 +652,6 @@ export default function App() {
             </div>
           </div>
         )}
-
-        {user && activeTab === 'admin' && profile?.is_admin && (
-          <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8">
-            <div className="space-y-2">
-              <h2 className="text-4xl font-black italic uppercase text-white">CENTRO DE <span className="text-[#ff2a2a]">COMANDO</span></h2>
-              <p className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest">GESTIÓN DE MERCADOS Y LIQUIDACIÓN</p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Nueva Cartelera */}
-              <div className="ko-card p-10 bg-[#111111] border-transparent flex flex-col justify-between">
-                <div>
-                  <h3 className="text-xs font-black uppercase tracking-widest text-[#ff2a2a] mb-8">NUEVA CARTELERA</h3>
-                  <div className="space-y-5">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">PELEADOR 1</label>
-                        <input 
-                          type="text"
-                          value={newFighter1}
-                          onChange={(e) => setNewFighter1(e.target.value)}
-                          placeholder="Ej: Canelo Álvarez"
-                          className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-bold text-white focus:border-[#555] outline-none rounded-sm"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">PELEADOR 2</label>
-                        <input 
-                          type="text"
-                          value={newFighter2}
-                          onChange={(e) => setNewFighter2(e.target.value)}
-                          placeholder="Ej: Gennady Golovkin"
-                          className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-bold text-white focus:border-[#555] outline-none rounded-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">TÍTULO DEL EVENTO (OPCIONAL)</label>
-                      <input 
-                        type="text"
-                        value={newTitle}
-                        onChange={(e) => setNewTitle(e.target.value)}
-                        placeholder="Ej: Noche de Campeones • Santo Domingo"
-                        className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-bold text-white focus:border-[#555] outline-none rounded-sm"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">CATEGORÍA</label>
-                        <select
-                          value={newCategory}
-                          onChange={(e) => setNewCategory(e.target.value)}
-                          className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-bold text-white focus:border-[#555] outline-none rounded-sm appearance-none"
-                        >
-                          <option value="BOXEO">BOXEO</option>
-                          <option value="MMA">MMA / UFC</option>
-                          <option value="KICKBOXING">KICKBOXING</option>
-                          <option value="LUCHA LIBRE">LUCHA LIBRE</option>
-                          <option value="OTRO">OTRO</option>
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">FECHA DEL EVENTO</label>
-                        <input 
-                          type="date"
-                          value={newDate}
-                          onChange={(e) => setNewDate(e.target.value)}
-                          className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-bold text-white focus:border-[#555] outline-none rounded-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">URL IMAGEN DEL CARTEL (OPCIONAL)</label>
-                      <input 
-                        type="url"
-                        value={newImageUrl}
-                        onChange={(e) => setNewImageUrl(e.target.value)}
-                        placeholder="https://i.imgur.com/tu-imagen.jpg"
-                        className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-mono text-white focus:border-[#555] outline-none rounded-sm"
-                      />
-                      {newImageUrl && (
-                        <img src={newImageUrl} alt="Preview" className="w-full h-24 object-cover rounded-sm mt-2 border border-[#222]" onError={(e) => {(e.target as HTMLImageElement).style.display='none'}} />
-                      )}
-                    </div>
-
-                    <div className="bg-[#0a0a0a] border border-[#222] rounded-sm p-4 space-y-3">
-                      <p className="text-[9px] font-bold text-[#777] uppercase tracking-widest">CUOTAS (% PROBABILIDAD)</p>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] text-white font-bold w-28 truncate">{newFighter1 || 'Peleador 1'} gana</span>
-                        <span className="text-[9px] text-[#777] font-bold">x{newFighter1 ? (100/40).toFixed(2) : '2.50'}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] text-white font-bold w-28">Empate</span>
-                        <span className="text-[9px] text-[#777] font-bold">x{(100/20).toFixed(2)}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] text-white font-bold w-28 truncate">{newFighter2 || 'Peleador 2'} gana</span>
-                        <span className="text-[9px] text-[#777] font-bold">x{newFighter2 ? (100/40).toFixed(2) : '2.50'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <button 
-                  onClick={async () => {
-                    if (!newFighter1 || !newFighter2) return alert('Debes ingresar ambos peleadores');
-                    const titleStr = newTitle || `${newFighter1} VS ${newFighter2}`;
-                    const { error } = await supabase.from('events').insert({
-                      title: titleStr,
-                      category: newCategory,
-                      date: newDate || null,
-                      image_url: newImageUrl || null,
-                      status: 'upcoming',
-                      options: [
-                        { id: '1', label: `${newFighter1} GANA`, percentage: 40 },
-                        { id: '2', label: 'EMPATE', percentage: 20 },
-                        { id: '3', label: `${newFighter2} GANA`, percentage: 40 }
-                      ]
-                    });
-                    if (error) { alert('ERROR: ' + error.message); return; }
-                    await fetchEvents();
-                    setNewFighter1('');
-                    setNewFighter2('');
-                    setNewTitle('');
-                    setNewImageUrl('');
-                    setNewDate('');
-                    alert('✅ MERCADO LANZADO CON ÉXITO');
-                  }}
-                  className="ko-btn-accent w-full py-4 text-xs mt-8"
-                >
-                  LANZAR MERCADO EN VIVO
-                </button>
-              </div>
-
-              {/* Configuración Nodo - Gestión de Pagos */}
-              <div className="ko-card p-10 bg-[#111111] border-transparent">
-                <div className="flex justify-between items-center mb-8">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-[#a1a1aa] flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-[#ff2a2a]" /> GESTIÓN DE COBROS
-                  </h3>
-                  <span className="text-[9px] font-bold text-[#ff2a2a] bg-[#ff2a2a]/10 px-2 py-1 rounded-sm uppercase tracking-widest">Nivel Maestro</span>
-                </div>
-                
-                <div className="space-y-8">
-                  {/* PayPal Config */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="w-3 h-3 text-[#ff2a2a]" />
-                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">DIRECCIÓN PAYPAL (BUSINESS)</label>
-                      </div>
-                      <button 
-                        onClick={() => setPaymentAccounts({...paymentAccounts, paypal: {...paymentAccounts.paypal, active: !paymentAccounts.paypal.active}})}
-                        className={cn("text-[8px] font-black px-2 py-0.5 rounded-sm transition-all", paymentAccounts.paypal.active ? "bg-green-500/20 text-green-500" : "bg-red-500/20 text-red-500")}
-                      >
-                        {paymentAccounts.paypal.active ? 'ACTIVO' : 'INACTIVO'}
-                      </button>
-                    </div>
-                    <input 
-                      type="text"
-                      value={paymentAccounts.paypal.value}
-                      onChange={(e) => setPaymentAccounts({...paymentAccounts, paypal: {...paymentAccounts.paypal, value: e.target.value}})}
-                      placeholder="ejemplo@paypal.me"
-                      className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-mono text-white focus:border-[#ff2a2a]/50 outline-none rounded-sm transition-all"
-                    />
-                  </div>
-
-                  {/* Bank Config */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <Wallet className="w-3 h-3 text-[#ff2a2a]" />
-                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">DATOS BANCARIOS (SEP/ACH/RD)</label>
-                      </div>
-                      <button 
-                        onClick={() => setPaymentAccounts({...paymentAccounts, bank: {...paymentAccounts.bank, active: !paymentAccounts.bank.active}})}
-                        className={cn("text-[8px] font-black px-2 py-0.5 rounded-sm transition-all", paymentAccounts.bank.active ? "bg-green-500/20 text-green-500" : "bg-red-500/20 text-red-500")}
-                      >
-                        {paymentAccounts.bank.active ? 'ACTIVO' : 'INACTIVO'}
-                      </button>
-                    </div>
-                    <textarea 
-                      value={paymentAccounts.bank.value}
-                      onChange={(e) => setPaymentAccounts({...paymentAccounts, bank: {...paymentAccounts.bank, value: e.target.value}})}
-                      placeholder="Banco, Nombre, Número de Cuenta, Cédula/RNC..."
-                      rows={3}
-                      className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-mono text-white focus:border-[#ff2a2a]/50 outline-none rounded-sm resize-none transition-all"
-                    />
-                  </div>
-
-                  {/* Crypto Config */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <Bitcoin className="w-3 h-3 text-[#ff2a2a]" />
-                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">WALLET CRYPTO (BTC/USDT-TRC20)</label>
-                      </div>
-                      <button 
-                        onClick={() => setPaymentAccounts({...paymentAccounts, crypto: {...paymentAccounts.crypto, active: !paymentAccounts.crypto.active}})}
-                        className={cn("text-[8px] font-black px-2 py-0.5 rounded-sm transition-all", paymentAccounts.crypto.active ? "bg-green-500/20 text-green-500" : "bg-red-500/20 text-red-500")}
-                      >
-                        {paymentAccounts.crypto.active ? 'ACTIVO' : 'INACTIVO'}
-                      </button>
-                    </div>
-                    <input 
-                      type="text"
-                      value={paymentAccounts.crypto.value}
-                      onChange={(e) => setPaymentAccounts({...paymentAccounts, crypto: {...paymentAccounts.crypto, value: e.target.value}})}
-                      placeholder="0x... o dirección de red"
-                      className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-mono text-white focus:border-[#ff2a2a]/50 outline-none rounded-sm transition-all"
-                    />
-                  </div>
-
-                  <div className="pt-4">
-                    <button 
-                      onClick={async () => {
-                        const { error } = await supabase.from('settings').update({ data: paymentAccounts }).eq('id', 'payments');
-                        if (error) {
-                          alert('Error al guardar: ' + error.message);
-                        } else {
-                          alert('✅ MÉTODOS DE PAGO ACTUALIZADOS CORRECTAMENTE');
-                        }
-                      }}
-                      className="ko-btn-white w-full py-5 text-[11px] font-black tracking-widest hover:bg-[#ff2a2a] hover:text-white transition-all duration-500 shadow-lg shadow-black/20"
-                    >
-                      SINCRONIZAR MÉTODOS DE COBRO
-                    </button>
-                    <p className="text-[8px] text-[#555] text-center mt-4 uppercase font-bold tracking-[0.2em]">Los cambios se reflejarán instantáneamente para todos los usuarios</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Pendientes (Manteniendo funcionalidad original) */}
-            <div className="ko-card p-10 bg-[#111111] border-transparent mt-12">
-              <h3 className="text-xs font-black uppercase tracking-widest mb-8 text-white flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-[#ff2a2a]" /> LIQUIDACIONES PENDIENTES
-              </h3>
-              <div className="divide-y divide-[#222]">
-                {pendingTransactions.length > 0 ? pendingTransactions.map(tx => (
-                  <div key={tx.id} className="py-4 flex justify-between items-center">
-                    <div>
-                      <div className="text-sm font-black text-white">{tx.users?.display_name || tx.users?.email}</div>
-                      <div className="text-[10px] font-bold text-[#777] uppercase">{tx.method} // {new Date(tx.created_at).toLocaleString()}</div>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div className="text-xl font-black text-white">${tx.amount}</div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleApproveTransaction(tx.id, tx.user_id, tx.amount)} className="p-2 bg-green-500/10 border border-green-500/30 text-green-500 hover:bg-green-500 hover:text-white transition-all rounded-sm">
-                          <CheckCircle2 className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => supabase.from('transactions').update({ status: 'rejected' }).eq('id', tx.id).then(() => fetchPendingTransactions())} className="p-2 bg-[#ff2a2a]/10 border border-[#ff2a2a]/30 text-[#ff2a2a] hover:bg-[#ff2a2a] hover:text-white transition-all rounded-sm">
-                          <XCircle className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="py-12 text-center text-[#777] font-bold text-[10px] uppercase tracking-widest">SIN LIQUIDACIONES PENDIENTES</div>
-                )}
-              </div>
-            </div>
-
-            {/* Nueva Sección: Liquidar Carteleras */}
-            <div className="ko-card p-10 bg-[#111111] border-transparent mt-12">
-              <h3 className="text-xs font-black uppercase tracking-widest mb-8 text-white flex items-center gap-2">
-                <Target className="w-4 h-4 text-[#ff2a2a]" /> LIQUIDAR CARTELERAS ACTIVAS
-              </h3>
-              <div className="space-y-6">
-                {events.filter(e => e.status !== 'finished').length > 0 ? events.filter(e => e.status !== 'finished').map(event => (
-                  <div key={event.id} className="p-6 bg-[#0a0a0a] border border-[#222] rounded-sm flex flex-col md:flex-row justify-between items-center gap-6">
-                    <div className="flex-1">
-                      <div className="text-[10px] font-bold text-[#ff2a2a] uppercase tracking-widest mb-1">{event.category}</div>
-                      <div className="text-lg font-black text-white uppercase">{event.title}</div>
-                      <div className="text-[10px] font-bold text-[#777] uppercase mt-1">Pool: ${event.pool} • Apuestas: {event.bets_count}</div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                      <select 
-                        value={selectedWinners[event.id] || ''}
-                        onChange={(e) => setSelectedWinners({...selectedWinners, [event.id]: e.target.value})}
-                        className="bg-[#111] border border-[#333] p-3 text-sm font-bold text-white outline-none rounded-sm"
-                      >
-                        <option value="" disabled>Seleccionar Ganador...</option>
-                        {event.options?.map((opt: any) => (
-                          <option key={opt.id} value={opt.id}>{opt.label}</option>
-                        ))}
-                      </select>
-                      <button 
-                        onClick={async () => {
-                          const winnerId = selectedWinners[event.id];
-                          if (!winnerId) return alert('Debes seleccionar un ganador primero');
-                          if (!confirm('¿Estás seguro de liquidar este evento? Esta acción transferirá fondos a los ganadores y no se puede deshacer.')) return;
-                          
-                          setLoading(true);
-                          try {
-                            const { error } = await supabase.rpc('liquidate_event', { p_event_id: event.id, p_winning_selection_id: winnerId });
-                            if (error) throw error;
-                            alert('✅ EVENTO LIQUIDADO Y GANANCIAS REPARTIDAS');
-                            await fetchEvents();
-                            setSelectedWinners(prev => {
-                              const next = {...prev};
-                              delete next[event.id];
-                              return next;
-                            });
-                          } catch (err: any) {
-                            alert('Error liquidando: ' + err.message);
-                          } finally {
-                            setLoading(false);
-                          }
-                        }}
-                        className="bg-[#ff2a2a] text-white font-black text-[10px] px-6 py-3 uppercase tracking-widest hover:bg-[#e62020] transition-colors rounded-sm"
-                      >
-                        LIQUIDAR EVENTO
-                      </button>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="py-12 text-center text-[#777] font-bold text-[10px] uppercase tracking-widest">NO HAY EVENTOS ACTIVOS PARA LIQUIDAR</div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         {user && activeTab === 'mercado' && (
           <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr_320px] gap-6 animate-in fade-in zoom-in-95 duration-500">
             {/* Left Sidebar */}
