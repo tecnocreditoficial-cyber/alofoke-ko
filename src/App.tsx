@@ -652,6 +652,64 @@ export default function App() {
             </div>
           </div>
         )}
+        {user && activeTab === 'perfil' && (
+          <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="space-y-2 mb-8">
+              <h2 className="text-4xl font-black italic uppercase text-white">TU <span className="text-[#ff2a2a]">PERFIL</span></h2>
+              <p className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest">INFORMACIÓN DE CUENTA Y SEGURIDAD</p>
+            </div>
+
+            <div className="ko-card p-10 bg-[#111111] border-transparent space-y-8">
+              <div className="flex items-center gap-6 pb-8 border-b border-[#222]">
+                <div className="w-24 h-24 rounded-full bg-[#222] border-2 border-[#ff2a2a] flex items-center justify-center text-4xl font-black text-white uppercase">
+                  {profile?.full_name?.charAt(0) || user.email?.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-white uppercase">{profile?.full_name || 'USUARIO ALOFOKE'}</h3>
+                  <p className="text-[#777] font-bold text-xs uppercase tracking-widest mt-1">{user.email}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">USERNAME</label>
+                  <div className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-bold text-white rounded-sm">
+                    {profile?.username || 'N/A'}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">TELÉFONO</label>
+                  <div className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-bold text-white rounded-sm">
+                    {profile?.phone || 'N/A'}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">PAÍS</label>
+                  <div className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-bold text-white rounded-sm">
+                    {profile?.country || 'N/A'}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">BALANCE ACTUAL</label>
+                  <div className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-black text-green-500 rounded-sm">
+                    RD${profile?.balance?.toLocaleString() || 0} DOP
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-8 flex justify-end">
+                <button 
+                  onClick={handleLogout}
+                  className="px-8 py-4 bg-[#ff2a2a]/10 text-[#ff2a2a] border border-[#ff2a2a]/30 hover:bg-[#ff2a2a] hover:text-white transition-all text-xs font-black uppercase tracking-widest rounded-sm flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  CERRAR SESIÓN
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {user && activeTab === 'mercado' && (
           <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr_320px] gap-6 animate-in fade-in zoom-in-95 duration-500">
             {/* Left Sidebar */}
