@@ -95,7 +95,7 @@ DROP POLICY IF EXISTS "Solo admins pueden actualizar settings" ON public.setting
 CREATE POLICY "Solo admins pueden actualizar settings" ON public.settings FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND is_admin = TRUE));
 
 -- Inserción inicial de configuración de pagos
-INSERT INTO public.settings (id, data) VALUES ('payments', '{"paypal": "admin@alofokeko.com", "bank": "Banco Popular, Cuenta 123456", "crypto": "0x000000"}') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.settings (id, data) VALUES ('payments', '{"paypal": {"value": "admin@alofokeko.com", "active": true}, "bank": {"value": "Banco Popular, Cuenta 123456", "active": true}, "crypto": {"value": "0x000000", "active": true}}') ON CONFLICT (id) DO NOTHING;
 
 -- Activar Realtime en Eventos y Settings (Ya activados, comentar para evitar errores)
 -- alter publication supabase_realtime add table public.events;
