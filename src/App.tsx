@@ -99,7 +99,7 @@ export default function App() {
   const [authPhone, setAuthPhone] = useState('');
   const [authCountry, setAuthCountry] = useState('');
   const [authUsername, setAuthUsername] = useState('');
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>(window.location.hash === '#signup' ? 'signup' : 'login');
   const [pendingTransactions, setPendingTransactions] = useState<any[]>([]);
 
   const fetchEvents = async () => {

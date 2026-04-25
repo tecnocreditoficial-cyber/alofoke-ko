@@ -154,7 +154,7 @@ export default function Landing() {
             Únete a cientos de usuarios que ya están operando en las mejores carteleras de deportes de contacto.
           </p>
           <div className="flex justify-center pt-8">
-            <Link to="/app" className="bg-[#ff2a2a] text-white text-lg font-black uppercase tracking-widest px-12 py-6 rounded-sm hover:bg-[#e62020] transition-all hover:scale-105 shadow-[0_0_40px_rgba(255,42,42,0.4)]">
+            <Link to="/app#signup" className="bg-[#ff2a2a] text-white text-lg font-black uppercase tracking-widest px-12 py-6 rounded-sm hover:bg-[#e62020] transition-all hover:scale-105 shadow-[0_0_40px_rgba(255,42,42,0.4)]">
               CREAR CUENTA AHORA
             </Link>
           </div>
