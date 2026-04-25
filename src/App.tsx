@@ -341,50 +341,12 @@ export default function App() {
                 <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{profile?.display_name?.split(' ')[0] || 'GUEST'}</span>
               </div>
             </>
-          ) : (
-            <button 
-              onClick={handleLogin}
-              className="ko-btn-cyan px-6 py-2 text-[10px]"
-            >
-              INICIAR CONEXIÓN
-            </button>
           )}
         </div>
       </header>
 
       <main className="flex-1 max-w-[1500px] mx-auto w-full p-6 lg:p-8 relative z-10">
-        {!user && (
-          <div className="h-[calc(100vh-200px)] flex flex-col items-center justify-center">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              className="max-w-xl w-full p-12 text-center ko-card space-y-8 relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-ko-cyan/10 blur-[60px] rounded-full" />
-              <div className="absolute bottom-0 left-0 w-40 h-40 bg-ko-accent/10 blur-[60px] rounded-full" />
-              
-              <div className="relative z-10 space-y-6">
-                <div className="flex items-center justify-center mx-auto">
-                  <img src="/logo.png" alt="Alofoke K.O Logo" className="w-48 h-48 object-contain mix-blend-screen drop-shadow-[0_0_30px_rgba(255,42,42,0.6)] animate-pulse-glow" />
-                </div>
-                
-                <div className="space-y-2">
-                  <p className="text-ko-cyan text-xs font-mono uppercase tracking-[0.4em]">Protocolo de Apuestas Descentralizado v3.1</p>
-                </div>
-                
-                <div className="pt-6 border-t border-white/5">
-                  <button 
-                    onClick={handleLogin}
-                    className="ko-btn-accent w-full py-5 text-sm flex items-center justify-center gap-3"
-                  >
-                    <Target className="w-5 h-5" /> AUTENTICAR IDENTIDAD
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
+
 
         {!user && (
           <div className="min-h-[80vh] flex items-center justify-center p-4">
