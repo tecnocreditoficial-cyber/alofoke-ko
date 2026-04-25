@@ -318,7 +318,7 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-6">
-          {user ? (
+          {user && (
             <>
               <div className="flex flex-col items-end">
                 <span className="text-[8px] text-zinc-500 uppercase font-black tracking-widest">Saldo Activo</span>
