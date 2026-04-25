@@ -148,16 +148,21 @@ export default function App() {
     fetchEvents();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        await fetchProfile(session.user.id);
-        await fetchBets(session.user.id);
-      } else {
-        setUser(null);
-        setProfile(null);
-        setUserBets([]);
+      try {
+        if (session?.user) {
+          setUser(session.user);
+          await fetchProfile(session.user.id);
+          await fetchBets(session.user.id);
+        } else {
+          setUser(null);
+          setProfile(null);
+          setUserBets([]);
+        }
+      } catch (err) {
+        console.error('Error fetching user data:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     const eventsSub = supabase.channel('public:events')
@@ -165,14 +170,24 @@ export default function App() {
         fetchEvents();
       }).subscribe();
 
+    // Fallback safety para quitar el loading si auth falla silenciosamente
+    const safetyTimeout = setTimeout(() => setLoading(false), 5000);
+
+    return () => {
+      clearTimeout(safetyTimeout);
+      authListener?.subscription?.unsubscribe();
+      supabase.removeChannel(eventsSub);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
     const profileSub = supabase.channel('public:users')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (payload) => {
-        if (payload.new.id === user?.id) setProfile(payload.new as UserProfile);
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${user.id}` }, (payload) => {
+        setProfile(payload.new as UserProfile);
       }).subscribe();
 
     return () => {
-      authListener.subscription.unsubscribe();
-      supabase.removeChannel(eventsSub);
       supabase.removeChannel(profileSub);
     };
   }, [user?.id]);
