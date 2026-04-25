@@ -88,9 +88,6 @@ export default function App() {
     crypto: ''
   });
 
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPass, setAuthPass] = useState('');
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [pendingTransactions, setPendingTransactions] = useState<any[]>([]);
 
   const fetchEvents = async () => {
@@ -164,30 +161,14 @@ export default function App() {
     }
   }, [profile?.is_admin]);
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      if (authMode === 'signup') {
-        const { error } = await supabase.auth.signUp({ 
-          email: authEmail, 
-          password: authPass,
-          options: {
-            data: { full_name: authEmail.split('@')[0] }
-          }
-        });
-        if (error) throw error;
-        alert('REGISTRO EXITOSO. YA PUEDES INICIAR SESIÓN.');
-        setAuthMode('login');
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPass });
-        if (error) throw error;
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
       }
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
+    });
+    if (error) console.error(error);
   };
 
   const handleLogout = async () => {
@@ -349,61 +330,33 @@ export default function App() {
 
 
         {!user && (
-          <div className="min-h-[80vh] flex items-center justify-center p-4">
+          <div className="h-[calc(100vh-200px)] flex flex-col items-center justify-center">
             <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="max-w-md w-full ko-card p-10 space-y-8 relative overflow-hidden"
-              style={{clipPath: 'polygon(30px 0, 100% 0, 100% calc(100% - 30px), calc(100% - 30px) 100%, 0 100%, 0 30px)'}}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="max-w-xl w-full p-12 text-center ko-card space-y-8 relative overflow-hidden"
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-ko-accent/10 blur-[50px] -mr-16 -mt-16" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-ko-cyan/10 blur-[60px] rounded-full" />
+              <div className="absolute bottom-0 left-0 w-40 h-40 bg-ko-accent/10 blur-[60px] rounded-full" />
               
-              <div className="text-center space-y-4">
-                <img src="/logo.png" alt="Alofoke K.O" className="w-32 h-32 mx-auto mix-blend-screen drop-shadow-[0_0_15px_rgba(255,42,42,0.5)]" />
-                <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white">
-                  AUTENTICACIÓN <span className="text-ko-cyan">REQUERIDA</span>
-                </h2>
-                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Protocolo de Acceso Seguro v4.0</p>
-              </div>
-
-              <form onSubmit={handleAuth} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">EMAIL_NODE</label>
-                  <input 
-                    type="email" 
-                    required
-                    value={authEmail}
-                    onChange={(e) => setAuthEmail(e.target.value)}
-                    className="w-full bg-black/50 border border-ko-cyan/20 p-4 text-white mono focus:border-ko-cyan outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">ACCESS_CODE</label>
-                  <input 
-                    type="password" 
-                    required
-                    value={authPass}
-                    onChange={(e) => setAuthPass(e.target.value)}
-                    className="w-full bg-black/50 border border-ko-cyan/20 p-4 text-white mono focus:border-ko-cyan outline-none transition-all"
-                  />
+              <div className="relative z-10 space-y-6">
+                <div className="flex items-center justify-center mx-auto">
+                  <img src="/logo.png" alt="Alofoke K.O Logo" className="w-48 h-48 object-contain mix-blend-screen drop-shadow-[0_0_30px_rgba(255,42,42,0.6)] animate-pulse-glow" />
                 </div>
                 
-                <button 
-                  type="submit"
-                  className="ko-btn-accent w-full py-4 text-[10px] flex items-center justify-center gap-3 font-black uppercase"
-                >
-                  <Shield className="w-4 h-4" /> 
-                  {authMode === 'login' ? 'INICIAR_SESIÓN' : 'REGISTRAR_NODO'}
-                </button>
-              </form>
-
-              <div className="text-center">
-                <button 
-                  onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
-                  className="text-[10px] font-mono text-ko-cyan uppercase tracking-widest hover:text-white transition-colors"
-                >
-                  {authMode === 'login' ? '¿No tienes cuenta? REGISTRARSE' : '¿Ya tienes cuenta? LOGIN'}
-                </button>
+                <div className="space-y-2">
+                  <p className="text-ko-cyan text-xs font-mono uppercase tracking-[0.4em]">Protocolo de Apuestas Descentralizado v3.1</p>
+                </div>
+                
+                <div className="pt-6 border-t border-white/5">
+                  <button 
+                    onClick={handleLogin}
+                    className="ko-btn-accent w-full py-5 text-sm flex items-center justify-center gap-3"
+                  >
+                    <Target className="w-5 h-5" /> AUTENTICAR CON GOOGLE
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
