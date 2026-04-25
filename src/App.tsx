@@ -85,12 +85,16 @@ export default function App() {
   const [newImageUrl, setNewImageUrl] = useState('');
   const [newDate, setNewDate] = useState('');
   
-  // Payment account states
+  // Payment account states - all methods
   const [paymentAccounts, setPaymentAccounts] = useState({
-    paypal: '',
-    bank: '',
-    crypto: ''
+    paypal:    { enabled: true,  value: '', instructions: 'Envía el pago y coloca tu email de usuario en el concepto.' },
+    zelle:     { enabled: false, value: '', instructions: 'Envía a este número/email y toma captura de pantalla.' },
+    cashapp:   { enabled: false, value: '', instructions: 'Envía al $cashtag indicado y toma captura de pantalla.' },
+    bank:      { enabled: false, value: '', instructions: 'Realiza transferencia y envía comprobante al admin.' },
+    bitcoin:   { enabled: false, value: '', instructions: 'Envía BTC a esta wallet y confirma con el hash de la transacción.' },
+    usdt:      { enabled: false, value: '', instructions: 'Red TRC20 (Tron). Envía USDT y comparte el hash de TX.' },
   });
+  const [paymentSaved, setPaymentSaved] = useState(false);
   
   const [authEmail, setAuthEmail] = useState('');
   const [authPass, setAuthPass] = useState('');
@@ -125,7 +129,18 @@ export default function App() {
 
   const loadSettings = async () => {
     const { data } = await supabase.from('settings').select('data').eq('id', 'payments').single();
-    if (data) setPaymentAccounts(data.data);
+    if (data?.data) {
+      setPaymentAccounts(prev => {
+        const saved = data.data;
+        const merged: any = { ...prev };
+        Object.keys(prev).forEach(key => {
+          if (saved[key] !== undefined) {
+            merged[key] = typeof saved[key] === 'object' ? { ...prev[key as keyof typeof prev], ...saved[key] } : prev[key as keyof typeof prev];
+          }
+        });
+        return merged;
+      });
+    }
   };
 
   useEffect(() => {
@@ -488,110 +503,129 @@ export default function App() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {user && activeTab === 'financiar' && (
-          <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8">
-            <div className="text-center space-y-4">
+               {user && activeTab === 'financiar' && (
+          <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8">
+            <div className="text-center space-y-3">
               <h2 className="text-4xl font-black italic uppercase tracking-tighter">
-                <span className="text-white">FINANCIAR</span> <span className="text-[#ff2a2a] border-b-4 border-[#ff2a2a] pb-1">CAPITAL</span>
+                <span className="text-white">AGREGAR</span> <span className="text-[#ff2a2a] border-b-4 border-[#ff2a2a] pb-1">FONDOS</span>
               </h2>
-              <p className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest pt-2">INYECCIÓN DE LIQUIDEZ NODO KO-MARKET</p>
+              <p className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest">Selecciona un método, realiza el pago y notifica al administrador</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* PayPal */}
-              <div className="ko-card p-10 flex flex-col items-center justify-center text-center space-y-6 group hover:border-[#333] transition-all cursor-pointer bg-[#111111] border-transparent" onClick={() => setDepositMethod('PAYPAL')}>
-                <div className="w-12 h-12 rounded bg-black flex items-center justify-center border border-[#222]">
-                  <CreditCard className="w-6 h-6 text-white" />
+            {/* Dynamic payment method cards */}
+            {(() => {
+              const methodMeta: Record<string, {name: string; icon: string; speed: string}> = {
+                paypal:  { name: 'PayPal',                icon: '💳', speed: 'Confirmación inmediata' },
+                zelle:   { name: 'Zelle',                 icon: '⚡', speed: '1-2 horas hábiles' },
+                cashapp: { name: 'Cash App',              icon: '💵', speed: '1-2 horas hábiles' },
+                bank:    { name: 'Transferencia Bancaria',icon: '🏦', speed: '24-48 horas hábiles' },
+                bitcoin: { name: 'Bitcoin (BTC)',          icon: '₿',  speed: '1-3 confirmaciones' },
+                usdt:    { name: 'USDT TRC20',             icon: '💠', speed: 'Confirmación en red' },
+              };
+              const activeMethods = (Object.keys(paymentAccounts) as Array<keyof typeof paymentAccounts>)
+                .filter(k => paymentAccounts[k].enabled && paymentAccounts[k].value);
+              
+              if (activeMethods.length === 0) return (
+                <div className="ko-card p-16 bg-[#111111] border-transparent text-center">
+                  <p className="text-[10px] font-bold text-[#555] uppercase tracking-widest">No hay métodos de pago activos.<br/>El administrador debe configurarlos.</p>
                 </div>
-                <div>
-                  <h3 className="text-sm font-black uppercase text-white tracking-widest">PAYPAL INSTANT</h3>
-                  <p className="text-[9px] font-bold text-[#777] uppercase tracking-widest mt-2">VALIDACIÓN INMEDIATA</p>
-                </div>
-                <div className="w-full pt-6 border-t border-[#222] flex justify-center items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  <span className="text-sm font-black text-white">$50 <span className="text-[10px] text-[#777] uppercase">USD</span></span>
-                </div>
-              </div>
+              );
 
-              {/* Bank */}
-              <div className="ko-card p-10 flex flex-col items-center justify-center text-center space-y-6 group hover:border-[#333] transition-all cursor-pointer bg-[#111111] border-transparent" onClick={() => setDepositMethod('BANCO')}>
-                <div className="w-12 h-12 rounded bg-black flex items-center justify-center border border-[#222]">
-                  <Shield className="w-6 h-6 text-white" />
+              return (
+                <div className={`grid grid-cols-1 ${activeMethods.length >= 3 ? 'md:grid-cols-3' : activeMethods.length === 2 ? 'md:grid-cols-2' : ''} gap-5`}>
+                  {activeMethods.map(method => {
+                    const meta = methodMeta[method as string] ?? { name: String(method), icon: '💰', speed: 'Variable' };
+                    const acct = paymentAccounts[method];
+                    const isSelected = depositMethod === method;
+                    return (
+                      <div
+                        key={method}
+                        onClick={() => setDepositMethod(method as string)}
+                        className={`ko-card p-8 flex flex-col items-center text-center space-y-4 cursor-pointer transition-all bg-[#111111] ${isSelected ? 'border-[#ff2a2a] shadow-[0_0_20px_rgba(255,42,42,0.1)]' : 'border-transparent hover:border-[#333]'}`}
+                      >
+                        <span className="text-4xl">{meta.icon}</span>
+                        <div>
+                          <h3 className="text-sm font-black uppercase text-white tracking-widest">{meta.name}</h3>
+                          <p className="text-[9px] font-bold text-[#777] uppercase tracking-widest mt-1">{meta.speed}</p>
+                        </div>
+                        <div className="w-full pt-4 border-t border-[#222] flex justify-center items-center gap-2">
+                          <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-[#ff2a2a]' : 'bg-green-500'}`} />
+                          <span className="text-xs font-black text-white">{isSelected ? 'SELECCIONADO' : 'DISPONIBLE'}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div>
-                  <h3 className="text-sm font-black uppercase text-white tracking-widest">BANK SEPA</h3>
-                  <p className="text-[9px] font-bold text-[#777] uppercase tracking-widest mt-2">1 2 HORAS RED</p>
-                </div>
-                <div className="w-full pt-6 border-t border-[#222] flex justify-center items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  <span className="text-sm font-black text-white">$100 <span className="text-[10px] text-[#777] uppercase">USD</span></span>
-                </div>
-              </div>
+              );
+            })()}
 
-              {/* Crypto */}
-              <div className="ko-card p-10 flex flex-col items-center justify-center text-center space-y-6 group hover:border-[#333] transition-all cursor-pointer bg-[#111111] border-transparent" onClick={() => setDepositMethod('CRYPTO')}>
-                <div className="w-12 h-12 rounded bg-black flex items-center justify-center border border-[#222]">
-                  <Bitcoin className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black uppercase text-white tracking-widest">BLOCKCHAIN L2</h3>
-                  <p className="text-[9px] font-bold text-[#777] uppercase tracking-widest mt-2">CONFIRMACIÓN MINERA</p>
-                </div>
-                <div className="w-full pt-6 border-t border-[#222] flex justify-center items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  <span className="text-sm font-black text-white">$200 <span className="text-[10px] text-[#777] uppercase">USD</span></span>
-                </div>
-              </div>
-            </div>
-
-            <div className="ko-card p-10 bg-[#111111] border-transparent mt-12">
-              <h3 className="text-[11px] font-bold uppercase tracking-widest mb-8 text-white">
-                NOTIFICAR TRANSFERENCIA
+            {/* Notification form */}
+            <div className="ko-card p-10 bg-[#111111] border-transparent">
+              <h3 className="text-[11px] font-black uppercase tracking-widest mb-8 text-white flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-[#ff2a2a]" /> NOTIFICAR PAGO AL ADMINISTRADOR
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-3">
+
+              {/* Instructions box */}
+              {depositMethod && paymentAccounts[depositMethod as keyof typeof paymentAccounts]?.value && (
+                <div className="mb-6 p-5 bg-[#0a0a0a] border border-[#ff2a2a]/30 rounded-sm space-y-3">
+                  <p className="text-[9px] font-black text-[#ff2a2a] uppercase tracking-widest">
+                    {(() => {
+                      const methodMeta: Record<string, string> = { paypal:'PayPal', zelle:'Zelle', cashapp:'Cash App', bank:'Transferencia Bancaria', bitcoin:'Bitcoin', usdt:'USDT TRC20' };
+                      return `INSTRUCCIONES — ${methodMeta[depositMethod] ?? depositMethod}`;
+                    })()}
+                  </p>
+                  <p className="text-sm font-black text-white font-mono break-all">
+                    {paymentAccounts[depositMethod as keyof typeof paymentAccounts]?.value}
+                  </p>
+                  <p className="text-xs text-[#a1a1aa]">
+                    {paymentAccounts[depositMethod as keyof typeof paymentAccounts]?.instructions}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
                   <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">MONTO ENVIADO (USD)</label>
-                  <input 
-                    type="number" 
-                    value={depositAmount}
+                  <input
+                    type="number"
+                    value={depositAmount || ''}
                     onChange={(e) => setDepositAmount(Number(e.target.value))}
-                    placeholder="Ej: 50" 
-                    className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-lg font-black text-white focus:border-[#555] outline-none transition-all rounded-sm" 
+                    placeholder="Ej: 100"
+                    className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-xl font-black text-white focus:border-[#555] outline-none transition-all rounded-sm"
                   />
                 </div>
-                <div className="space-y-3">
-                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">MÉTODO SELECCIONADO</label>
-                  <select 
+                <div className="space-y-2">
+                  <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">MÉTODO UTILIZADO</label>
+                  <select
                     value={depositMethod}
                     onChange={(e) => setDepositMethod(e.target.value)}
                     className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-bold uppercase text-white focus:border-[#555] outline-none transition-all appearance-none rounded-sm"
                   >
-                    <option value="PAYPAL">PAYPAL INSTANT</option>
-                    <option value="BANCO">BANK SEPA</option>
-                    <option value="CRYPTO">BLOCKCHAIN L2</option>
+                    {(Object.keys(paymentAccounts) as Array<keyof typeof paymentAccounts>)
+                      .filter(k => paymentAccounts[k].enabled && paymentAccounts[k].value)
+                      .map(k => {
+                        const n: Record<string,string> = { paypal:'PayPal', zelle:'Zelle', cashapp:'Cash App', bank:'Transferencia Bancaria', bitcoin:'Bitcoin', usdt:'USDT TRC20' };
+                        return <option key={k as string} value={k as string}>{n[k as string] ?? k}</option>;
+                      })
+                    }
                   </select>
                 </div>
               </div>
-              
-              <div className="mt-6 p-4 bg-[#0a0a0a] border border-[#222] rounded-sm">
-                <p className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest mb-2">INSTRUCCIONES DE PAGO ({depositMethod})</p>
-                <p className="text-xs font-mono text-white">
-                  {depositMethod === 'PAYPAL' && paymentAccounts.paypal}
-                  {depositMethod === 'BANCO' && paymentAccounts.bank}
-                  {depositMethod === 'CRYPTO' && paymentAccounts.crypto}
-                </p>
-              </div>
 
-              <button 
-                onClick={() => handleDeposit(depositAmount, depositMethod)} 
-                className="ko-btn-white w-full mt-8 py-4 text-[11px]"
+              <button
+                onClick={() => {
+                  if (!depositAmount || depositAmount <= 0) return alert('INGRESA EL MONTO ENVIADO');
+                  if (!depositMethod) return alert('SELECCIONA UN MÉTODO DE PAGO');
+                  handleDeposit(depositAmount, depositMethod);
+                }}
+                className="ko-btn-accent w-full mt-8 py-4 text-[11px] flex items-center justify-center gap-2"
               >
-                CONFIRMAR Y NOTIFICAR DEPÓSITO
+                <CheckCircle2 className="w-4 h-4" /> CONFIRMAR Y NOTIFICAR DEPÓSITO
               </button>
+              <p className="text-center text-[9px] text-[#555] mt-3 font-bold uppercase tracking-widest">Tu saldo será acreditado una vez el admin verifique el pago</p>
             </div>
+          </div>
+        )}
           </div>
         )}
 
@@ -731,52 +765,95 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Configuración Nodo */}
-              <div className="ko-card p-10 bg-[#111111] border-transparent">
-                <h3 className="text-xs font-black uppercase tracking-widest text-[#a1a1aa] mb-8 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-[#ff2a2a]" /> CONFIGURACIÓN NODO
-                </h3>
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">PAYPAL DE RECAUDACIÓN</label>
-                    <input 
-                      type="text"
-                      value={paymentAccounts.paypal}
-                      onChange={(e) => setPaymentAccounts({...paymentAccounts, paypal: e.target.value})}
-                      placeholder="email@paypal.com"
-                      className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-mono text-white focus:border-[#555] outline-none rounded-sm"
-                    />
+              {/* ===== MÉTODOS DE PAGO ===== */}
+              <div className="ko-card p-8 bg-[#111111] border-transparent">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-[#ff2a2a]" /> MÉTODOS DE PAGO
+                    </h3>
+                    <p className="text-[9px] text-[#555] font-bold mt-1 uppercase tracking-widest">Solo los métodos ACTIVOS serán visibles para los usuarios</p>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">CUENTA BANCARIA (INSTRUCCIONES)</label>
-                    <textarea 
-                      value={paymentAccounts.bank}
-                      onChange={(e) => setPaymentAccounts({...paymentAccounts, bank: e.target.value})}
-                      placeholder="Banco: XYZ, Cuenta: 000..."
-                      rows={2}
-                      className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-mono text-white focus:border-[#555] outline-none rounded-sm resize-none"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">WALLET CRYPTO (BTC/USDT)</label>
-                    <input 
-                      type="text"
-                      value={paymentAccounts.crypto}
-                      onChange={(e) => setPaymentAccounts({...paymentAccounts, crypto: e.target.value})}
-                      placeholder="0x..."
-                      className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-sm font-mono text-white focus:border-[#555] outline-none rounded-sm"
-                    />
-                  </div>
-                  <button 
-                    onClick={async () => {
-                      await supabase.from('settings').update({ data: paymentAccounts }).eq('id', 'payments');
-                      alert('CONFIGURACIÓN GUARDADA');
-                    }}
-                    className="ko-btn-white w-full py-4 text-xs"
-                  >
-                    GUARDAR CONFIGURACIÓN
-                  </button>
+                  {paymentSaved && (
+                    <span className="bg-green-500/10 border border-green-500/30 text-green-400 text-[9px] font-black px-3 py-1 rounded-sm uppercase tracking-widest flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> GUARDADO
+                    </span>
+                  )}
                 </div>
+
+                <div className="space-y-4">
+                  {/* PayPal */}
+                  {(['paypal','zelle','cashapp','bank','bitcoin','usdt'] as const).map((method) => {
+                    const labels: Record<string, {name: string; placeholder: string; icon: string}> = {
+                      paypal:  { name: 'PayPal',         placeholder: 'email@paypal.com',          icon: '💳' },
+                      zelle:   { name: 'Zelle',          placeholder: '+1 (809) 000-0000 o email',  icon: '⚡' },
+                      cashapp: { name: 'Cash App',       placeholder: '$tucashtag',                 icon: '💵' },
+                      bank:    { name: 'Transferencia Bancaria', placeholder: 'Banco: Popular, Cta: 0000000, Titular: Tu Nombre', icon: '🏦' },
+                      bitcoin: { name: 'Bitcoin (BTC)',  placeholder: 'bc1q... o 1A... ',            icon: '₿' },
+                      usdt:    { name: 'USDT TRC20',     placeholder: 'T... (wallet Tron)',          icon: '💠' },
+                    };
+                    const meta = labels[method];
+                    const acct = paymentAccounts[method];
+                    return (
+                      <div key={method} className={`border rounded-sm transition-all ${acct.enabled ? 'border-[#333] bg-[#0d0d0d]' : 'border-[#1a1a1a] bg-[#0a0a0a] opacity-60'}`}>
+                        {/* Header row */}
+                        <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => setPaymentAccounts(p => ({ ...p, [method]: { ...p[method], enabled: !p[method].enabled } }))}>
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg">{meta.icon}</span>
+                            <span className="text-sm font-black text-white uppercase tracking-wide">{meta.name}</span>
+                            {acct.enabled && acct.value && (
+                              <span className="bg-green-500/10 border border-green-500/20 text-green-400 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">ACTIVO</span>
+                            )}
+                            {acct.enabled && !acct.value && (
+                              <span className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">FALTA CUENTA</span>
+                            )}
+                          </div>
+                          {/* Toggle */}
+                          <div className={`w-10 h-5 rounded-full transition-all relative ${acct.enabled ? 'bg-[#ff2a2a]' : 'bg-[#333]'}`}>
+                            <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-all ${acct.enabled ? 'left-5' : 'left-1'}`} />
+                          </div>
+                        </div>
+
+                        {/* Fields - only shown when enabled */}
+                        {acct.enabled && (
+                          <div className="px-4 pb-4 space-y-3 border-t border-[#1a1a1a] pt-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">NÚMERO / EMAIL / WALLET</label>
+                              <input
+                                type="text"
+                                value={acct.value}
+                                onChange={e => setPaymentAccounts(p => ({ ...p, [method]: { ...p[method], value: e.target.value } }))}
+                                placeholder={meta.placeholder}
+                                className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-sm font-mono text-white focus:border-[#555] outline-none rounded-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">INSTRUCCIONES PARA EL USUARIO</label>
+                              <textarea
+                                value={acct.instructions}
+                                onChange={e => setPaymentAccounts(p => ({ ...p, [method]: { ...p[method], instructions: e.target.value } }))}
+                                rows={2}
+                                className="w-full bg-[#0a0a0a] border border-[#222] p-3 text-xs text-[#a1a1aa] focus:border-[#555] outline-none rounded-sm resize-none"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={async () => {
+                    const { error } = await supabase.from('settings').upsert({ id: 'payments', data: paymentAccounts, updated_at: new Date().toISOString() });
+                    if (error) { alert('ERROR AL GUARDAR: ' + error.message); return; }
+                    setPaymentSaved(true);
+                    setTimeout(() => setPaymentSaved(false), 3000);
+                  }}
+                  className="ko-btn-accent w-full py-4 text-xs mt-6 flex items-center justify-center gap-2"
+                >
+                  <Shield className="w-4 h-4" /> GUARDAR MÉTODOS DE PAGO
+                </button>
               </div>
             </div>
 
