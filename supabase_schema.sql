@@ -131,3 +131,37 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- 6. Función RPC para Liquidar Eventos (Pagar a los ganadores)
+CREATE OR REPLACE FUNCTION public.liquidate_event(p_event_id UUID, p_winning_selection_id TEXT)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    bet_record RECORD;
+    payout_amount NUMERIC;
+BEGIN
+    -- 1. Verificar si el evento existe y no está finalizado
+    IF NOT EXISTS (SELECT 1 FROM public.events WHERE id = p_event_id AND status != 'finished') THEN
+        RAISE EXCEPTION 'El evento no existe o ya fue liquidado.';
+    END IF;
+
+    -- 2. Marcar el evento como finalizado
+    UPDATE public.events SET status = 'finished' WHERE id = p_event_id;
+
+    -- 3. Procesar todas las apuestas pendientes de este evento
+    FOR bet_record IN SELECT * FROM public.bets WHERE event_id = p_event_id AND status = 'pending' LOOP
+        IF bet_record.selection_id = p_winning_selection_id THEN
+            -- Ganó: Calcular pago (monto * cuota) y actualizar balance
+            payout_amount := bet_record.amount * bet_record.odds;
+            
+            UPDATE public.bets SET status = 'won' WHERE id = bet_record.id;
+            UPDATE public.users SET balance = balance + payout_amount WHERE id = bet_record.user_id;
+        ELSE
+            -- Perdió
+            UPDATE public.bets SET status = 'lost' WHERE id = bet_record.id;
+        END IF;
+    END LOOP;
+END;
+$$;

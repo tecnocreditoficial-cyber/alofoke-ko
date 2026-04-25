@@ -101,6 +101,7 @@ export default function App() {
   const [authUsername, setAuthUsername] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>(window.location.hash === '#signup' ? 'signup' : 'login');
   const [pendingTransactions, setPendingTransactions] = useState<any[]>([]);
+  const [selectedWinners, setSelectedWinners] = useState<Record<string, string>>({});
 
   const fetchEvents = async () => {
     const { data } = await supabase.from('events').select('*').order('created_at', { ascending: false });
@@ -942,6 +943,65 @@ export default function App() {
                   </div>
                 )) : (
                   <div className="py-12 text-center text-[#777] font-bold text-[10px] uppercase tracking-widest">SIN LIQUIDACIONES PENDIENTES</div>
+                )}
+              </div>
+            </div>
+
+            {/* Nueva Sección: Liquidar Carteleras */}
+            <div className="ko-card p-10 bg-[#111111] border-transparent mt-12">
+              <h3 className="text-xs font-black uppercase tracking-widest mb-8 text-white flex items-center gap-2">
+                <Target className="w-4 h-4 text-[#ff2a2a]" /> LIQUIDAR CARTELERAS ACTIVAS
+              </h3>
+              <div className="space-y-6">
+                {events.filter(e => e.status !== 'finished').length > 0 ? events.filter(e => e.status !== 'finished').map(event => (
+                  <div key={event.id} className="p-6 bg-[#0a0a0a] border border-[#222] rounded-sm flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="flex-1">
+                      <div className="text-[10px] font-bold text-[#ff2a2a] uppercase tracking-widest mb-1">{event.category}</div>
+                      <div className="text-lg font-black text-white uppercase">{event.title}</div>
+                      <div className="text-[10px] font-bold text-[#777] uppercase mt-1">Pool: ${event.pool} • Apuestas: {event.bets_count}</div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                      <select 
+                        value={selectedWinners[event.id] || ''}
+                        onChange={(e) => setSelectedWinners({...selectedWinners, [event.id]: e.target.value})}
+                        className="bg-[#111] border border-[#333] p-3 text-sm font-bold text-white outline-none rounded-sm"
+                      >
+                        <option value="" disabled>Seleccionar Ganador...</option>
+                        {event.options?.map((opt: any) => (
+                          <option key={opt.id} value={opt.id}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <button 
+                        onClick={async () => {
+                          const winnerId = selectedWinners[event.id];
+                          if (!winnerId) return alert('Debes seleccionar un ganador primero');
+                          if (!confirm('¿Estás seguro de liquidar este evento? Esta acción transferirá fondos a los ganadores y no se puede deshacer.')) return;
+                          
+                          setLoading(true);
+                          try {
+                            const { error } = await supabase.rpc('liquidate_event', { p_event_id: event.id, p_winning_selection_id: winnerId });
+                            if (error) throw error;
+                            alert('✅ EVENTO LIQUIDADO Y GANANCIAS REPARTIDAS');
+                            await fetchEvents();
+                            setSelectedWinners(prev => {
+                              const next = {...prev};
+                              delete next[event.id];
+                              return next;
+                            });
+                          } catch (err: any) {
+                            alert('Error liquidando: ' + err.message);
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        className="bg-[#ff2a2a] text-white font-black text-[10px] px-6 py-3 uppercase tracking-widest hover:bg-[#e62020] transition-colors rounded-sm"
+                      >
+                        LIQUIDAR EVENTO
+                      </button>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="py-12 text-center text-[#777] font-bold text-[10px] uppercase tracking-widest">NO HAY EVENTOS ACTIVOS PARA LIQUIDAR</div>
                 )}
               </div>
             </div>
