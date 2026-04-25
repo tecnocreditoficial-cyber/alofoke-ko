@@ -96,6 +96,9 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState('');
   const [authPass, setAuthPass] = useState('');
   const [authName, setAuthName] = useState('');
+  const [authPhone, setAuthPhone] = useState('');
+  const [authCountry, setAuthCountry] = useState('');
+  const [authUsername, setAuthUsername] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [pendingTransactions, setPendingTransactions] = useState<any[]>([]);
 
@@ -188,7 +191,12 @@ export default function App() {
           email: authEmail, 
           password: authPass,
           options: {
-            data: { full_name: authName || authEmail.split('@')[0] }
+            data: { 
+              full_name: authName || authEmail.split('@')[0],
+              phone: authPhone,
+              country: authCountry,
+              username: authUsername
+            }
           }
         });
         if (error) throw error;
@@ -402,16 +410,64 @@ export default function App() {
 
               <form onSubmit={handleAuth} className="space-y-6">
                 {authMode === 'signup' && (
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">NOMBRE COMPLETO</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={authName}
-                      onChange={(e) => setAuthName(e.target.value)}
-                      placeholder="Ej: Juan Pérez"
-                      className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-white font-bold focus:border-[#ff2a2a]/50 outline-none transition-all rounded-sm"
-                    />
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">NOMBRE COMPLETO</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={authName}
+                        onChange={(e) => setAuthName(e.target.value)}
+                        placeholder="Ej: Juan Pérez"
+                        className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-white font-bold focus:border-[#ff2a2a]/50 outline-none transition-all rounded-sm"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">USUARIO</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={authUsername}
+                          onChange={(e) => setAuthUsername(e.target.value)}
+                          placeholder="@tu_usuario"
+                          className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-white font-bold focus:border-[#ff2a2a]/50 outline-none transition-all rounded-sm"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">TELÉFONO</label>
+                        <input 
+                          type="tel" 
+                          required
+                          value={authPhone}
+                          onChange={(e) => setAuthPhone(e.target.value)}
+                          placeholder="+1 809..."
+                          className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-white font-bold focus:border-[#ff2a2a]/50 outline-none transition-all rounded-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-bold text-[#777] uppercase tracking-widest">PAÍS DE RESIDENCIA</label>
+                      <select 
+                        required
+                        value={authCountry}
+                        onChange={(e) => setAuthCountry(e.target.value)}
+                        className="w-full bg-[#0a0a0a] border border-[#222] p-4 text-[#a1a1aa] font-bold focus:border-[#ff2a2a]/50 outline-none transition-all rounded-sm appearance-none"
+                      >
+                        <option value="" disabled>Selecciona tu país</option>
+                        <option value="DO">República Dominicana</option>
+                        <option value="US">Estados Unidos</option>
+                        <option value="ES">España</option>
+                        <option value="MX">México</option>
+                        <option value="CO">Colombia</option>
+                        <option value="AR">Argentina</option>
+                        <option value="CL">Chile</option>
+                        <option value="PE">Perú</option>
+                        <option value="OT">Otro</option>
+                      </select>
+                    </div>
                   </div>
                 )}
                 <div className="space-y-2">

@@ -6,6 +6,9 @@ CREATE TABLE IF NOT EXISTS public.users (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   email TEXT NOT NULL,
   display_name TEXT DEFAULT 'Anon',
+  phone TEXT,
+  country TEXT,
+  username TEXT,
   balance NUMERIC DEFAULT 0.00,
   is_admin BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -101,18 +104,23 @@ INSERT INTO public.settings (id, data) VALUES ('payments', '{"paypal": {"value":
 -- alter publication supabase_realtime add table public.events;
 -- alter publication supabase_realtime add table public.settings;
 
--- MIGRACIÓN: agregar columna image_url si no existe (ejecutar si la tabla events ya existe)
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS country TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS username TEXT;
 
--- NOTA IMPORTANT: Función Trigger para crear el perfil cuando alguien se loguea con Google
+-- NOTA IMPORTANT: Función Trigger para crear el perfil cuando alguien se loguea con Google o se registra
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-  INSERT INTO public.users (id, email, display_name, is_admin)
+  INSERT INTO public.users (id, email, display_name, phone, country, username, is_admin)
   VALUES (
     new.id, 
     new.email, 
     new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'phone',
+    new.raw_user_meta_data->>'country',
+    new.raw_user_meta_data->>'username',
     CASE WHEN new.email = 'tecnocreditoficial@gmail.com' THEN true ELSE false END
   );
   RETURN new;
