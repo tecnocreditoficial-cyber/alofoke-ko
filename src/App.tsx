@@ -304,8 +304,7 @@ export default function App() {
       <header className="sticky top-0 z-50 h-20 border-b border-white/5 bg-[#0a0a0a] px-8 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-3">
-            <img src="/logo.png" alt="Alofoke K.O" className="h-8 object-contain" />
-            <span className="text-2xl font-black italic tracking-tighter text-white hidden sm:block">ALOFOKE <span className="text-[#ff2a2a]">K.O</span></span>
+            <img src="/logo.png" alt="Alofoke Predicción" className="h-10 object-contain" />
           </Link>
           
           <nav className="hidden md:flex gap-6 text-xs font-bold uppercase tracking-wide text-[#a1a1aa]">
@@ -379,11 +378,11 @@ export default function App() {
             >
               
               <div className="text-center space-y-4">
-                <img src="/logo.png" alt="Alofoke K.O Logo" className="h-16 mx-auto mb-6 object-contain drop-shadow-[0_0_15px_rgba(255,42,42,0.3)]" />
+                <img src="/logo.png" alt="Alofoke Predicción Logo" className="h-16 mx-auto mb-6 object-contain drop-shadow-[0_0_15px_rgba(255,42,42,0.3)]" />
                 <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white">
                   INICIA <span className="text-[#ff2a2a]">SESIÓN</span>
                 </h2>
-                <p className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest">Alofoke K.O Platform</p>
+                <p className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest">Alofoke Predicción Platform</p>
               </div>
 
               <form onSubmit={handleAuth} className="space-y-6">
@@ -988,7 +987,7 @@ export default function App() {
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-xl font-black italic uppercase text-white">CONFIRMAR <span className="text-[#ff2a2a]">APUESTA</span></h3>
-                    <p className="text-[10px] text-[#777] font-bold mt-1 uppercase tracking-widest">Alofoke K.O Platform</p>
+                    <p className="text-[10px] text-[#777] font-bold mt-1 uppercase tracking-widest">Alofoke Predicción Platform</p>
                   </div>
                   <button onClick={() => setBetModalOpen(false)} className="w-8 h-8 bg-[#222] rounded-sm flex items-center justify-center text-[#777] hover:text-white transition-colors">✕</button>
                 </div>

@@ -10,8 +10,7 @@ export default function Landing() {
       <nav className="fixed w-full top-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5">
         <div className="max-w-[1500px] mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Alofoke K.O" className="h-8 object-contain" />
-            <span className="text-xl font-black italic tracking-tighter text-white">ALOFOKE <span className="text-[#ff2a2a]">K.O</span></span>
+            <img src="/logo.png" alt="Alofoke Predicción" className="h-10 object-contain" />
           </div>
           
           <div className="hidden md:flex items-center gap-8 text-[11px] font-bold uppercase tracking-widest text-[#a1a1aa]">
@@ -48,13 +47,13 @@ export default function Landing() {
             </div>
             
             <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter leading-[0.9]">
-              LA NUEVA ERA DE LAS <br/>
-              <span className="text-[#ff2a2a]">APUESTAS DEPORTIVAS</span>
+              PREDICE,<br/>
+              <span className="text-[#ff2a2a]">GANA GRANDE.</span>
             </h1>
             
             <p className="text-lg text-[#a1a1aa] max-w-xl leading-relaxed">
-              Plataforma de predicción de mercados deportivos para boxeo y artes marciales mixtas.
-              Cuotas dinámicas, pagos instantáneos y la seguridad que exige el más alto nivel.
+              La plataforma de predicción de mercados número 1 de República Dominicana.
+              Apuesta en realities, deportes y eventos en vivo con cuotas dinámicas y pagos instantáneos.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
@@ -90,7 +89,9 @@ export default function Landing() {
             className="relative lg:h-[600px] flex items-center justify-center"
           >
             <div className="absolute inset-0 bg-[#ff2a2a]/5 blur-[100px] rounded-full" />
-            <img src="/logo.png" alt="Alofoke K.O Logo Large" className="relative z-10 w-full max-w-lg object-contain drop-shadow-[0_0_50px_rgba(255,42,42,0.2)]" />
+            <div className="relative z-10 bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
+              <img src="/logo.png" alt="Alofoke Predicción Logo" className="w-full max-w-lg object-contain drop-shadow-[0_0_50px_rgba(255,42,42,0.3)]" />
+            </div>
           </motion.div>
         </div>
       </section>
@@ -100,10 +101,10 @@ export default function Landing() {
         <div className="max-w-[1500px] mx-auto px-6">
           <div className="text-center mb-16 space-y-4">
             <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">
-              INFRAESTRUCTURA <span className="text-[#ff2a2a]">PREMIUM</span>
+              POR QUÉ <span className="text-[#ff2a2a]">ALOFOKE PREDICCIÓN</span>
             </h2>
             <p className="text-[#a1a1aa] max-w-2xl mx-auto">
-              Construido para soportar alto volumen de transacciones con la máxima seguridad y transparencia en cada operación de mercado.
+              La primera plataforma de mercados de predicción del Caribe. Cuotas dinámicas, resolución transparente y pagos garantizados.
             </p>
           </div>
 
@@ -148,14 +149,14 @@ export default function Landing() {
         <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
           <Zap className="w-12 h-12 text-[#ff2a2a] mx-auto" />
           <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">
-            ¿ESTÁS LISTO PARA ENTRAR AL MERCADO?
+            ¿LISTO PARA <span className="text-[#ff2a2a]">PREDECIR</span> Y GANAR?
           </h2>
           <p className="text-[#a1a1aa] text-lg">
-            Únete a cientos de usuarios que ya están operando en las mejores carteleras de deportes de contacto.
+            Únete a miles de usuarios que ya predicen en realities, deportes y eventos en vivo en Alofoke Predicción.
           </p>
           <div className="flex justify-center pt-8">
             <Link to="/app#signup" className="bg-[#ff2a2a] text-white text-lg font-black uppercase tracking-widest px-12 py-6 rounded-sm hover:bg-[#e62020] transition-all hover:scale-105 shadow-[0_0_40px_rgba(255,42,42,0.4)]">
-              CREAR CUENTA AHORA
+              CREAR CUENTA GRATIS
             </Link>
           </div>
         </div>
@@ -165,12 +166,11 @@ export default function Landing() {
       <footer className="bg-[#050505] border-t border-[#111] py-12 px-6">
         <div className="max-w-[1500px] mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Alofoke K.O" className="h-6 object-contain grayscale opacity-50" />
-            <span className="text-sm font-black italic tracking-tighter text-[#555]">ALOFOKE <span className="text-[#ff2a2a]/50">K.O</span></span>
+            <img src="/logo.png" alt="Alofoke Predicción" className="h-8 object-contain opacity-60" />
           </div>
           
           <div className="text-[10px] font-bold text-[#555] uppercase tracking-widest">
-            © {new Date().getFullYear()} Alofoke K.O Platform. Todos los derechos reservados.
+            © {new Date().getFullYear()} Alofoke Predicción. Todos los derechos reservados.
           </div>
           
           <div className="flex gap-6 text-[10px] font-bold text-[#777] uppercase tracking-widest">
